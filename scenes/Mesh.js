@@ -1,9 +1,9 @@
 
-import NodeCore from './NodeCore'
-import BindGroup from '../cores/BindGroup'
-import BindGroupLayout from '../cores/BindGroupLayout'
-import BufferCore from '../cores/BufferCore'
-import VARS from '../cores/VARS'
+import NodeCore from './NodeCore.js'
+import BindGroup from '../cores/BindGroup.js'
+import BindGroupLayout from '../cores/BindGroupLayout.js'
+import BufferCore from '../cores/BufferCore.js'
+import VARS from '../cores/VARS.js'
 
 class Mesh extends NodeCore {
     constructor(geometry, material, shaderModule) {

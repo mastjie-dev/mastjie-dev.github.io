@@ -1,5 +1,5 @@
-import BindGroup from '../cores/BindGroup'
-import BindGroupLayout from '../cores/BindGroupLayout'
+import BindGroup from '../cores/BindGroup.js'
+import BindGroupLayout from '../cores/BindGroupLayout.js'
 
 class BaseMaterial {
     constructor(name) {

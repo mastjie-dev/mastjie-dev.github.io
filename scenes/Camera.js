@@ -1,10 +1,10 @@
-import BindGroup from "../cores/BindGroup"
-import BindGroupLayout from "../cores/BindGroupLayout"
-import Matrix4 from "../math/Matrix4"
-import Vector3 from "../math/Vector3"
-import NodeCore from './NodeCore'
-import BufferCore from "../cores/BufferCore"
-import VARS from "../cores/VARS"
+import BindGroup from "../cores/BindGroup.js"
+import BindGroupLayout from "../cores/BindGroupLayout.js"
+import Matrix4 from "../math/Matrix4.js"
+import Vector3 from "../math/Vector3.js"
+import NodeCore from './NodeCore.js'
+import BufferCore from "../cores/BufferCore.js"
+import VARS from "../cores/VARS.js"
 
 class Camera extends NodeCore {
     constructor(name) {

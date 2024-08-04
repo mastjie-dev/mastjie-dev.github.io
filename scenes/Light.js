@@ -1,7 +1,7 @@
-import BindGroup from "../cores/BindGroup"
-import BindGroupLayout from "../cores/BindGroupLayout"
-import Vector3 from "./Vector3"
-import NodeCore from './NodeCore'
+import BindGroup from "../cores/BindGroup.js"
+import BindGroupLayout from "../cores/BindGroupLayout.js"
+import Vector3 from "./Vector3.js"
+import NodeCore from './NodeCore.js'
 
 class Light extends NodeCore {
     constructor(name) {
