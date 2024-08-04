@@ -6,7 +6,7 @@ import Mesh from '/scenes/Mesh.js'
 import { PerspectiveCamera } from '/scenes/Camera.js'
 import VARS from '/cores/VARS.js'
 
-import data from '/data'
+import data from '/data.js'
 
 const shaderCode = `
     struct Camera {
