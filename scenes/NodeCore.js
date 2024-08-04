@@ -1,0 +1,44 @@
+import Vector3 from "../math/Vector3"
+import Matrix4 from "../math/Matrix4"
+
+class NodeCore {
+    constructor(name) {
+        this.name = name
+        this.position = new Vector3()
+        this.rotation = new Vector3()
+        this.scale = new Vector3(1, 1, 1)
+
+        this.localMatrix = new Matrix4().identity()
+        this.worldMatrix = new Matrix4().identity()
+
+        this.parent = null
+        this.children = []
+    }
+
+    addParent(parent) {
+        this.parent = parent
+    }
+
+    addChild(child) {
+        this.children.push(child)
+    }
+
+    updateLocalMatrix() {
+        this.localMatrix
+            .translate(this.position)
+            .rotateX(this.rotation.x)
+            .rotateY(this.rotation.y)
+            .rotateZ(this.rotation.z)
+            .scale(this.scale)
+    }
+
+    updateWorldMatrix() {
+        if (!this.parent) {
+            this.worldMatrix.copy(this.localMatrix)
+            return
+        }
+        this.worldMatrix.multiplyMatrix(this.parent.worldMatrix, this.localMatrix)
+    }
+}
+
+export default NodeCore

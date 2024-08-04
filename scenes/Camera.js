@@ -1,0 +1,81 @@
+import BindGroup from "../cores/BindGroup"
+import BindGroupLayout from "../cores/BindGroupLayout"
+import Matrix4 from "../math/Matrix4"
+import Vector3 from "../math/Vector3"
+import NodeCore from './NodeCore'
+import BufferCore from "../cores/BufferCore"
+import VARS from "../cores/VARS"
+
+class Camera extends NodeCore {
+    constructor(name) {
+        super(name)
+        this.isCamera = true
+
+        this.target = new Vector3()
+        this.up = new Vector3(0, 1, 0)
+
+        this.projectionMatrix = new Matrix4()
+        this.viewMatrix = new Matrix4()
+        this.buffer = new BufferCore("camera", "uniform", new Float32Array(32), VARS.Buffer.Uniform)
+
+        this.bindGroup = new BindGroup()
+        this.bindGroupLayout = new BindGroupLayout()
+    }
+
+    updateViewMatrix() {
+        this.viewMatrix.lookAt(
+            this.position.toArray(), this.target.toArray(), this.up.toArray()
+        )
+    }
+
+    updateBuffer() {
+        this.buffer.data.set(this.projectionMatrix.elements)
+        this.buffer.data.set(this.viewMatrix.elements, 16)
+    }
+}
+
+class PerspectiveCamera extends Camera {
+    constructor(fov = 50, aspect = 1, near = .1, far = 1000) {
+        super("Perspective Camera")
+
+        this.fov = fov
+        this.aspect = aspect
+        this.near = near
+        this.far = far
+    }
+
+    updateProjectionMatrix() {
+        this.projectionMatrix.perspective(this.fov, this.aspect, this.near, this.far)
+    }
+
+    update() {
+        this.updateProjectionMatrix()
+        this.updateViewMatrix()
+        this.updateBuffer()
+    }
+}
+
+class OrthographicCamera extends Camera {
+    constructor(left = -1, right = 1, bottom = 1, top = -1, near = .1, far = 100) {
+        super("Orthographic Camera")
+        this.left = left
+        this.right = right
+        this.bottom = bottom
+        this.top = top
+        this.near = near
+        this.far = far
+    }
+
+    updateProjectionMatrix() {
+        this.projectionMatrix.orthographic(this.left, this.right, this.bottom, this.top, this.near, this.far)
+    }
+
+    update() {
+        this.updateProjectionMatrix()
+        this.updateViewMatrix()
+        this.updateBuffer()
+    }
+}
+
+export { Camera, PerspectiveCamera, OrthographicCamera }
+
