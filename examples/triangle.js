@@ -1,12 +1,12 @@
-import WebGPUInstance from '../cores/WebGPUInstance'
-import BufferCore from '../cores/BufferCore'
-import BaseGeometry from '../scenes/BaseGeometry'
-import BaseMaterial from '../scenes/BaseMaterial'
-import Mesh from '../scenes/Mesh'
-import { PerspectiveCamera } from '../scenes/Camera'
-import VARS from '../cores/VARS'
+import WebGPUInstance from '/cores/WebGPUInstance'
+import BufferCore from '/cores/BufferCore'
+import BaseGeometry from '/scenes/BaseGeometry'
+import BaseMaterial from '/scenes/BaseMaterial'
+import Mesh from '/scenes/Mesh'
+import { PerspectiveCamera } from '/scenes/Camera'
+import VARS from '/cores/VARS'
 
-import data from '../data'
+import data from '/data'
 
 const shaderCode = `
     struct Camera {
