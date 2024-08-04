@@ -1,10 +1,10 @@
-import WebGPUInstance from '/cores/WebGPUInstance'
-import BufferCore from '/cores/BufferCore'
-import BaseGeometry from '/scenes/BaseGeometry'
-import BaseMaterial from '/scenes/BaseMaterial'
-import Mesh from '/scenes/Mesh'
-import { PerspectiveCamera } from '/scenes/Camera'
-import VARS from '/cores/VARS'
+import WebGPUInstance from '/cores/WebGPUInstance.js'
+import BufferCore from '/cores/BufferCore.js'
+import BaseGeometry from '/scenes/BaseGeometry.js'
+import BaseMaterial from '/scenes/BaseMaterial.js'
+import Mesh from '/scenes/Mesh.js'
+import { PerspectiveCamera } from '/scenes/Camera.js'
+import VARS from '/cores/VARS.js'
 
 import data from '/data'
 
