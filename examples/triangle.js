@@ -109,7 +109,7 @@ async function main() {
 
     const render = () => {
         instance.custom(device => {
-            boxMesh.rotation.x += .025
+            boxMesh.rotation.y += .025
             boxMesh.rotation.z += .018
             boxMesh.update()
 

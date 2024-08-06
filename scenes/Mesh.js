@@ -25,6 +25,8 @@ class Mesh extends NodeCore {
     }
 
     update() {
+        this.localMatrix.identity()
+        this.worldMatrix.identity()
         this.updateLocalMatrix()
         this.updateWorldMatrix()
         // this.updateNormalMatrix()

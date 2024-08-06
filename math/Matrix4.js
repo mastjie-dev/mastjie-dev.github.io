@@ -52,10 +52,24 @@ class Matrix4 {
     }
 
     identity() {
-        this.clear()
         this.elements[0] = 1
+        this.elements[1] = 0
+        this.elements[2] = 0
+        this.elements[3] = 0
+
+        this.elements[4] = 0
         this.elements[5] = 1
+        this.elements[6] = 0
+        this.elements[7] = 0
+
+        this.elements[8] = 0
+        this.elements[9] = 0
         this.elements[10] = 1
+        this.elements[11] = 0
+
+        this.elements[12] = 0
+        this.elements[13] = 0
+        this.elements[14] = 0
         this.elements[15] = 1
         return this
     }
@@ -235,7 +249,6 @@ class Matrix4 {
     }
 
     orthographic(left, right, bottom, top, near, far) {
-        this.clear()
 
         const el = this.elements
 
@@ -243,9 +256,12 @@ class Matrix4 {
         el[5] = 2 / (top - bottom)
         el[10] = 1 / (near - far)
 
-        el[12] = -(right + left) / (right - left)
-        el[13] = -(top + bottom) / (top - bottom)
+        el[12] = -(right + left) / (left - right)
+        el[13] = -(top + bottom) / (bottom - top)
         el[14] = near / (near - far)
+        el[15] = 1
+
+        return this
     }
 }
 
