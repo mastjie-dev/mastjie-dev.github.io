@@ -1,3 +1,4 @@
+import Vector3 from "./Vector3"
 import { mat4 } from "wgpu-matrix"
 
 class Matrix4 {
@@ -60,75 +61,191 @@ class Matrix4 {
     }
 
     multiply(m1) {
-        const m = mat4.multiply(m1, this.elements)
-        this.elements = Array.from(m)
+        this.multiplyMatrix(this, m1)
         return this
     }
 
     multiplyMatrix(m1, m2) {
-        const m = mat4.multiply(m1.elements, m2.elements)
-        this.elements = Array.from(m)
+        const mr = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        const a = m1.elements || m1
+        const b = m2.elements || m2
+
+        mr[0] = a[0] * b[0] + a[4] * b[1] + a[8] * b[2] + a[12] * b[3]
+        mr[4] = a[0] * b[4] + a[4] * b[5] + a[8] * b[6] + a[12] * b[7]
+        mr[8] = a[0] * b[8] + a[4] * b[9] + a[8] * b[10] + a[12] * b[11]
+        mr[12] = a[0] * b[12] + a[4] * b[13] + a[8] * b[14] + a[12] * b[15]
+
+        mr[1] = a[1] * b[0] + a[5] * b[1] + a[9] * b[2] + a[13] * b[3]
+        mr[5] = a[1] * b[4] + a[5] * b[5] + a[9] * b[6] + a[13] * b[7]
+        mr[9] = a[1] * b[8] + a[5] * b[9] + a[9] * b[10] + a[13] * b[11]
+        mr[13] = a[1] * b[12] + a[5] * b[13] + a[9] * b[14] + a[13] * b[15]
+
+        mr[2] = a[2] * b[0] + a[6] * b[1] + a[10] * b[2] + a[14] * b[3]
+        mr[6] = a[2] * b[4] + a[6] * b[5] + a[10] * b[6] + a[14] * b[7]
+        mr[10] = a[2] * b[8] + a[6] * b[9] + a[10] * b[10] + a[14] * b[11]
+        mr[14] = a[2] * b[12] + a[6] * b[13] + a[10] * b[14] + a[14] * b[15]
+
+        mr[3] = a[3] * b[0] + a[7] * b[1] + a[11] * b[2] + a[15] * b[3]
+        mr[7] = a[3] * b[4] + a[7] * b[5] + a[11] * b[6] + a[15] * b[7]
+        mr[11] = a[3] * b[8] + a[7] * b[9] + a[11] * b[10] + a[15] * b[11]
+        mr[15] = a[3] * b[12] + a[7] * b[13] + a[11] * b[14] + a[15] * b[15]
+
+        this.elements = mr
         return this
     }
 
     translate(v3) {
-        const m = mat4.translate(mat4.identity(), v3.toArray())
-        this.elements = Array.from(m)
+        const a = [
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            v3.x, v3.y, v3.z, 1,
+        ]
+        this.multiplyMatrix(this.elements, a)
         return this
     }
 
     scale(v3) {
-        const m = mat4.scale(this.elements, v3.toArray())
-        this.elements = Array.from(m)
+        const a = [
+            v3.x, 0, 0, 0,
+            0, v3.y, 0, 0,
+            0, 0, v3.z, 0,
+            0, 0, 0, 1,
+        ]
+        this.multiplyMatrix(this.elements, a)
         return this
     }
 
-    rotateX(a) {
-        const m = mat4.rotateX(this.elements, a)
-        this.elements = Array.from(m)
+    rotateX(radian) {
+        const s = Math.sin(radian)
+        const c = Math.cos(radian)
+        const a = [
+            1, 0, 0, 0,
+            0, c, s, 0,
+            0, -s, c, 0,
+            0, 0, 0, 1
+        ]
+        this.multiplyMatrix(this.elements, a)
+
         return this
     }
 
-    rotateY(a) {
-        const m = mat4.rotateY(this.elements, a)
-        this.elements = Array.from(m)
+    rotateY(radian) {
+        const s = Math.sin(radian)
+        const c = Math.cos(radian)
+        const a = [
+            c, 0, -s, 0,
+            0, 1, 0, 0,
+            s, 0, c, 0,
+            0, 0, 0, 1,
+        ]
+        this.multiplyMatrix(this.elements, a)
         return this
     }
 
-    rotateZ(a) {
-        const m = mat4.rotateZ(this.elements, a)
-        this.elements = Array.from(m)
+    rotateZ(radian) {
+        const s = Math.sin(radian)
+        const c = Math.cos(radian)
+        const a = [
+            c, s, 0, 0,
+            -s, c, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1,
+        ]
+        this.multiplyMatrix(this.elements, a)
+
         return this
     }
 
     transpose() {
-        const m = mat4.transpose(this.elements)
-        this.elements = Array.from(m)
+        a = this.elements
+        let t
+
+        t = a[1]; a[1] = a[4]; a[4] = t;
+        t = a[2]; a[2] = a[8]; a[8] = t;
+        t = a[3]; a[3] = a[12]; a[12] = t;
+        t = a[6]; a[6] = a[9]; a[9] = t;
+        t = a[7]; a[7] = a[13]; a[13] = t;
+        t = a[11]; a[11] = a[14]; a[14] = t;
+
         return this
+    }
+
+    determinant() {
+        const el = this.elements
+        let a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p
+
+        a = el[0]; e = el[4]; i = el[8];  m = el[12];
+        b = el[1]; f = el[5]; j = el[9];  n = el[13];
+        c = el[2]; g = el[6]; k = el[10]; o = el[14];
+        d = el[3]; h = el[7]; l = el[11]; p = el[15];
+
+        const w = a*( f*(k*p-o*l) - j*(g*p-o*h) + n*(g*l-k*h) )
+
+        const x = e*( b*(k*p-o*l) - j*(c*p-o*d) + n*(c*l-k*d) )
+
+        const y = i*( b*(g*p-o*h) - f*(c*p-o*d) + n*(c*h-g*d) )
+
+        const z = m*( b*(g*l-k*h) - f*(c*l-k*d) + j*(c*h-g*d) )
+
+        return w - x + y - z
     }
 
     inverse() {
-        const m = mat4.inverse(this.elements)
-        this.elements = Array.from(m)
-        return this
+        // TODO
     }
 
     lookAt(position, target, up) {
-        const m = mat4.lookAt(position, target, up)
-        this.elements = Array.from(m)
+        const el = this.elements
+
+        const p = new Vector3()
+        p.copy(position)
+
+        const f = new Vector3()
+        f.subVector(position, target).normalize()
+
+        const r = new Vector3()
+        r.cross(up, f).normalize()
+
+        const u = new Vector3()
+        u.cross(f, r)
+
+        el[0] = r.x;  el[1] = u.x;  el[2]  = f.x; el[3]  = 0;
+        el[4] = r.y;  el[5] = u.y;  el[6]  = f.y; el[7]  = 0;
+        el[8] = r.z;  el[9] = u.z;  el[10] = f.z; el[11] = 0;
+
+        el[12] = -(r.x*p.x + r.y*p.y + r.z*p.z)
+        el[13] = -(u.x*p.x + u.y*p.y + u.z*p.z)
+        el[14] = -(f.x*p.x + f.y*p.y + f.z*p.z)
+        el[15] = 1
+
         return this
     }
 
     perspective(fov, aspect, near, far) {
-        const m = mat4.perspective(fov, aspect, near, far)
-        this.elements = Array.from(m)
+        const f = Math.tan(Math.PI * .5  - .5 * fov)
+
+        this.elements[0] = f / aspect
+        this.elements[5] = f
+        this.elements[10] = far * 1 / (near - far)
+        this.elements[11] = -1
+        this.elements[14] = far * near * 1 / (near - far)
+
         return this
     }
 
-    orthographic(left, right, bottom, up, near, far) {
-        const m = mat4.ortho(left, right, bottom, up, near, far)
-        this.elements = Array.from(m)
-        return this
+    orthographic(left, right, bottom, top, near, far) {
+        this.clear()
+
+        const el = this.elements
+
+        el[0] = 2 / (right - left)
+        el[5] = 2 / (top - bottom)
+        el[10] = 1 / (near - far)
+
+        el[12] = -(right + left) / (right - left)
+        el[13] = -(top + bottom) / (top - bottom)
+        el[14] = near / (near - far)
     }
 }
 

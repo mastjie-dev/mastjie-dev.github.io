@@ -24,7 +24,7 @@ class Camera extends NodeCore {
 
     updateViewMatrix() {
         this.viewMatrix.lookAt(
-            this.position.toArray(), this.target.toArray(), this.up.toArray()
+            this.position, this.target, this.up
         )
     }
 

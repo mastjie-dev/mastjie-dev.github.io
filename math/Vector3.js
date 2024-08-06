@@ -10,6 +10,7 @@ class Vector3 {
         this.x = x
         this.y = y
         this.z = z
+        return this
     }
 
     toArray() {
@@ -20,6 +21,41 @@ class Vector3 {
         this.x = v3.x
         this.y = v3.y
         this.z = v3.z
+        return this
+    }
+
+    subVector(a, b) {
+        this.x = a.x - b.x
+        this.y = a.y - b.y
+        this.z = a.z - b.z
+        return this
+    }
+
+    cross(a, b) {
+        this.x = a.y*b.z - a.z*b.y
+        this.y = a.z*b.x - a.x*b.z
+        this.z = a.x*b.y - a.y*b.x
+        return this
+    }
+
+    dot(a) {
+        return this.x*a.x + this.y*a.y + this.z*a.z
+    }
+
+    length() {
+        return Math.sqrt(
+            this.x * this.x +
+            this.y * this.y +
+            this.z * this.z
+        )
+    }
+
+    normalize() {
+        const l = this.length()
+        this.x /= l
+        this.y /= l
+        this.z /= l
+        return this
     }
 }
 
