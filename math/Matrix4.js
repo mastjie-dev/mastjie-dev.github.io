@@ -186,27 +186,131 @@ class Matrix4 {
     }
 
     determinant() {
-        const el = this.elements
-        let a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p
-
-        a = el[0]; e = el[4]; i = el[8];  m = el[12];
-        b = el[1]; f = el[5]; j = el[9];  n = el[13];
-        c = el[2]; g = el[6]; k = el[10]; o = el[14];
-        d = el[3]; h = el[7]; l = el[11]; p = el[15];
-
-        const w = a*( f*(k*p-o*l) - j*(g*p-o*h) + n*(g*l-k*h) )
-
-        const x = e*( b*(k*p-o*l) - j*(c*p-o*d) + n*(c*l-k*d) )
-
-        const y = i*( b*(g*p-o*h) - f*(c*p-o*d) + n*(c*h-g*d) )
-
-        const z = m*( b*(g*l-k*h) - f*(c*l-k*d) + j*(c*h-g*d) )
-
-        return w - x + y - z
+        const m = this.elements
+        return (
+            m[0] * (
+                m[5] * (m[10] * m[15] - m[14] * m[11]) -
+                m[9] * (m[6] * m[15] - m[14] * m[7]) +
+                m[13] * (m[6] * m[11] - m[10] * m[7])
+            ) -
+            m[4] * (
+                m[1] * (m[10] * m[15] - m[14] * m[11]) -
+                m[9] * (m[2] * m[15] - m[14] * m[3]) +
+                m[13] * (m[2] * m[11] - m[10] * m[3])
+            ) +
+            m[8] * (
+                m[1] * (m[6] * m[15] - m[14] * m[7]) -
+                m[5] * (m[2] * m[15] - m[14] * m[3]) +
+                m[13] * (m[2] * m[7] - m[6] * m[3])
+            ) -
+            m[12] * (
+                m[1] * (m[6] * m[11] - m[10] * m[7]) -
+                m[5] * (m[2] * m[11] - m[10] * m[3]) +
+                m[9] * (m[2] * m[7] - m[6] * m[3])
+            )
+        )
     }
 
     inverse() {
-        // TODO
+        const m = this.elements
+
+        const m0 = m[5]*(m[10]*m[15] - m[11]*m[14])
+                 - m[9]*(m[6]*m[15] - m[14]*m[7])
+                 + m[13]*(m[6]*m[11] - m[10]*m[7])
+        
+        const m1 = m[4]*(m[10]*m[15] - m[14]*m[11])
+                 - m[8]*(m[6]*m[15] - m[14]*m[7])
+                 + m[12]*(m[6]*m[11] - m[10]*m[7])
+        
+        const m2 = m[4]*(m[9]*m[15] - m[13]*m[11])
+                 - m[8]*(m[5]*m[15] - m[13]*m[7])
+                 + m[12]*(m[5]*m[11] - m[9]*m[7])
+
+        const m3 = m[4]*(m[9]*m[14] - m[13]*m[10])
+                 - m[8]*(m[5]*m[14] - m[13]*m[6])
+                 + m[12]*(m[5]*m[10] - m[9]*m[6])
+
+        const m4 = m[1]*(m[10]*m[15] - m[14]*m[11])
+                 - m[9]*(m[2]*m[15] - m[14]*m[3])
+                 + m[13]*(m[2]*m[11] - m[10]*m[3])
+
+        const m5 = m[0]*(m[10]*m[15] - m[14]*m[11])
+                 - m[8]*(m[2]*m[15] - m[14]*m[3])
+                 + m[12]*(m[2]*m[11] - m[10]*m[3])
+
+        const m6 = m[0]*(m[9]*m[15] - m[13]*m[11])
+                 - m[8]*(m[1]*m[15] - m[13]*m[3])
+                 + m[12]*(m[1]*m[11] - m[9]*m[3])
+        
+        const m7 = m[0]*(m[9]*m[14] - m[13]*m[10])
+                 - m[8]*(m[1]*m[14] - m[13]*m[2])
+                 + m[12]*(m[1]*m[10] - m[9]*m[2])
+        
+        const m8 = m[1]*(m[6]*m[15] - m[14]*m[7])
+                 - m[5]*(m[2]*m[15] - m[14]*m[3])
+                 + m[13]*(m[2]*m[7] - m[6]*m[3])
+                 
+        const m9 = m[0]*(m[6]*m[15] - m[14]*m[7])
+                 - m[4]*(m[2]*m[15] - m[14]*m[3])
+                 + m[12]*(m[2]*m[7] - m[6]*m[3])
+
+        const m10 = m[0]*(m[5]*m[15] - m[13]*m[7])
+                  - m[4]*(m[1]*m[15] - m[13]*m[3])
+                  + m[12]*(m[1]*m[7] - m[5]*m[3])
+
+        const m11 = m[0]*(m[5]*m[14] - m[13]*m[6])
+                  - m[4]*(m[1]*m[14] - m[13]*m[2])
+                  + m[12]*(m[1]*m[6] - m[5]*m[2])
+
+        const m12 = m[1]*(m[6]*m[11] - m[10]*m[7])
+                  - m[5]*(m[2]*m[11] - m[10]*m[3])
+                  + m[9]*(m[2]*m[7] - m[6]*m[3])
+
+        const m13 = m[0]*(m[6]*m[11] - m[10]*m[7])
+                  - m[4]*(m[2]*m[11] - m[10]*m[3])
+                  + m[8]*(m[2]*m[7] - m[6]*m[3])
+
+        const m14 = m[0]*(m[5]*m[11] - m[9]*m[7])
+                  - m[4]*(m[1]*m[11] - m[9]*m[3])
+                  + m[8]*(m[1]*m[7] - m[5]*m[3])
+        
+        const m15 = m[0]*(m[5]*m[10] - m[9]*m[6])
+                  - m[4]*(m[1]*m[10] - m[9]*m[2])
+                  + m[8]*(m[1]*m[6] - m[5]*m[2])
+
+        const det = m[0]*m0 - m[4]*m4 + m[8]*m8 - m[12]*m12
+        
+        if (det === 0) {
+            this.elements = [
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+            ]
+            return
+        }
+        
+        const invDet = 1 / det
+
+        m[0]  = m0*invDet
+        m[1]  = -m4*invDet
+        m[2]  = m8*invDet
+        m[3]  = -m12*invDet
+
+        m[4]  = -m1*invDet
+        m[5]  = m5*invDet
+        m[6]  = -m9*invDet
+        m[7]  = m13*invDet
+
+        m[8]  = m2*invDet
+        m[9]  = -m6*invDet
+        m[10] = m10*invDet
+        m[11] = -m14*invDet
+
+        m[12] = -m3*invDet
+        m[13] = m7*invDet
+        m[14] = -m11*invDet
+        m[15] = m15*invDet
     }
 
     lookAt(position, target, up) {
@@ -224,20 +328,20 @@ class Matrix4 {
         const u = new Vector3()
         u.cross(f, r)
 
-        el[0] = r.x;  el[1] = u.x;  el[2]  = f.x; el[3]  = 0;
-        el[4] = r.y;  el[5] = u.y;  el[6]  = f.y; el[7]  = 0;
-        el[8] = r.z;  el[9] = u.z;  el[10] = f.z; el[11] = 0;
+        el[0] = r.x; el[1] = u.x; el[2] = f.x; el[3] = 0;
+        el[4] = r.y; el[5] = u.y; el[6] = f.y; el[7] = 0;
+        el[8] = r.z; el[9] = u.z; el[10] = f.z; el[11] = 0;
 
-        el[12] = -(r.x*p.x + r.y*p.y + r.z*p.z)
-        el[13] = -(u.x*p.x + u.y*p.y + u.z*p.z)
-        el[14] = -(f.x*p.x + f.y*p.y + f.z*p.z)
+        el[12] = -(r.x * p.x + r.y * p.y + r.z * p.z)
+        el[13] = -(u.x * p.x + u.y * p.y + u.z * p.z)
+        el[14] = -(f.x * p.x + f.y * p.y + f.z * p.z)
         el[15] = 1
 
         return this
     }
 
     perspective(fov, aspect, near, far) {
-        const f = Math.tan(Math.PI * .5  - .5 * fov)
+        const f = Math.tan(Math.PI * .5 - .5 * fov)
 
         this.elements[0] = f / aspect
         this.elements[5] = f
