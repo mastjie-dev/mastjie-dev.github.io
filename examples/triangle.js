@@ -6,9 +6,15 @@ import Mesh from '/scenes/Mesh.js'
 import { PerspectiveCamera } from '/scenes/Camera.js'
 import VARS from '/cores/VARS.js'
 
-import data from '/data.js'
+import GeometryUtils from '../scenes/GeometryUtils'
 
 const shaderCode = `
+    struct VSOutput {
+        @builtin(position) position: vec4f,
+        @location(0) normal: vec3f,
+        @location(1) uv: vec2f,
+    };
+
     struct Camera {
         projection: mat4x4<f32>,
         view: mat4x4<f32>,
@@ -25,18 +31,27 @@ const shaderCode = `
     @vertex
     fn main_vertex(
         @location(0) position: vec3f,
-    ) -> @builtin(position) vec4f
+        @location(1) normal: vec3f,
+        @location(2) uv: vec2f,
+    ) -> VSOutput
     {
+        var output: VSOutput;
         let transform = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
-        return transform;
+        
+        output.position = transform;
+        output.normal = normal;
+        output.uv = uv;
+
+        return output;
     }
 
     @fragment
     fn main_fragment(
-        // @builtin(position) vec4f 
+        input: VSOutput
     ) -> @location(0) vec4f
     {
-        return vec4f(color, 1.);
+        return vec4f(input.normal, 1.);
+        // return vec4f(color, 1.);
     }
 `
 
@@ -57,11 +72,16 @@ async function main() {
 
     const shaderModule = instance.createShaderModule(shaderCode)
 
+    const _d = GeometryUtils.createBox(2, 2, 2, 2, 2, 2)
+
     const boxGeometry = new BaseGeometry("box geometry")
     boxGeometry.addAttributes(
-        new BufferCore("position", "attribute", data.box.position, VARS.Buffer.Attribute32x3))
+        new BufferCore("position", "attribute", _d.position, VARS.Buffer.Attribute32x3))
+    boxGeometry.addAttributes(
+            new BufferCore("normal", "attribute", _d.normal, VARS.Buffer.Attribute32x3))
+    boxGeometry.addAttributes(new BufferCore("uv", "attribute", _d.uv, VARS.Buffer.Attribute32x2))
     boxGeometry.addIndex(
-        new BufferCore("index", "index", data.box.index, VARS.Buffer.IndexUint16))
+        new BufferCore("index", "index", _d.index, VARS.Buffer.IndexUint16))
 
     const boxMaterial = new BaseMaterial("red material")
     boxMaterial.addBuffer(
@@ -70,11 +90,13 @@ async function main() {
     const boxMesh = new Mesh(boxGeometry, boxMaterial, shaderModule)
     boxMesh.update()
     const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight)
-    camera.position.z = -10
+    camera.position.set(0, -10, -20)
     camera.update()
 
     instance
         .createAndWriteBuffer(boxGeometry.attributes[0])
+        .createAndWriteBuffer(boxGeometry.attributes[1])
+        .createAndWriteBuffer(boxGeometry.attributes[2])
         .createAndWriteBuffer(boxGeometry.index)
         .createVertexBufferLayout(boxGeometry)
 
@@ -124,6 +146,8 @@ async function main() {
             const renderPass = encoder.beginRenderPass(renderPassDescriptor)
             renderPass.setPipeline(renderObject.pipeline)
             renderPass.setVertexBuffer(0, renderObject.mesh.geometry.attributes[0].GPUBuffer)
+            renderPass.setVertexBuffer(1, renderObject.mesh.geometry.attributes[1].GPUBuffer)
+            renderPass.setVertexBuffer(2, renderObject.mesh.geometry.attributes[2].GPUBuffer)
             renderPass.setBindGroup(0, renderObject.mesh.material.bindGroup.GPUBindGroup)
             renderPass.setBindGroup(1, renderObject.mesh.bindGroup.GPUBindGroup)
             renderPass.setBindGroup(2, camera.bindGroup.GPUBindGroup)
