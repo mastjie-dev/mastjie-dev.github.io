@@ -72,7 +72,23 @@ class WebGPUInstance {
     writeTexture(textureCore) {
         if (textureCore.isExternalTexture) {
             this.writeExternalTexture(textureCore)
+            return this
         }
+
+        const { width, height, depth, dimension } = textureCore
+        this.device.queue.writeTexture(
+            { texture: textureCore.GPUTexture },
+            textureCore.data,
+            {
+                offset: 0,
+                bytesPerRow: width * 4,
+                rowsPerImage: width * height * 4,
+            },
+            {
+                width: width,
+                height: height,
+            }
+        )
 
         return this
     }
@@ -96,6 +112,7 @@ class WebGPUInstance {
     createAndWriteTexture(textureCore) {
         this.createTexture(textureCore)
         this.writeTexture(textureCore)
+        return this
     }
 
     createSampler(samplerCore) {
@@ -119,15 +136,26 @@ class WebGPUInstance {
             })
         }
         else if (resource.isTexture) {
-            entries.push({
+            const e = {
                 binding,
-                visibility: resource.visibility,
-                texture: {
+                visibility: resource.visibility
+            }
+
+            if (resource.isStorageTexture) {
+                e.storageTexture = {
+                    access: resource.access,
+                    format: resource.format,
+                    viewDimension: resource.dimension
+                }
+            } else {
+                e.texture = {
                     sampleType: resource.sampleType,
                     viewDimension: resource.dimension,
                     multisampled: resource.isMultisampled,
                 }
-            })
+            }
+
+            entries.push(e)
         }
         else if (resource.isSampler) {
             entries.push({
@@ -282,58 +310,28 @@ class WebGPUInstance {
         mesh.pipeline = pipeline
     }
 
+    createComputePipeline(computeObject, pipelineLayout, computeModule) {
+        const pipeline = this.device.createComputePipeline({
+            layout: pipelineLayout,
+            compute: { module: computeModule }
+        })
+        computeObject.pipeline = pipeline
+    }
+
     custom(callback) {
         callback(this.device)
     }
 
-    _render(scene, camera, renderTarget) {
-
-        const rt = renderTarget ? renderTarget : this.canvasOutput
-
-        this.encoder = this.device.createCommandEncoder()
-
-        if (!rt.depth.GPUTexture) {
-            this.createTexture(rt.depth)
-        }
-
-        const colorAttachments = [rt.caDesc]
-        colorAttachments[0].view = this.context.getCurrentTexture().createView()
-
-        const depthStencilAttachment = rt.dsDesc
-        depthStencilAttachment.view = rt.depth.GPUTexture.createView()
-
-        const renderPass = this.encoder.beginRenderPass({
-            label: rt.name,
-            colorAttachments,
-            depthStencilAttachment,
-        })
-
-        for (let mesh of scene.meshes) {
-            this.writeBuffer(mesh.matrix)
-
-            renderPass.setPipeline(mesh.renderPipeline)
-
-            let idx = 0
-            for (let attr of mesh.geometry.attributes) {
-                renderPass.setVertexBuffer(idx, attr.GPUBuffer)
-                ++idx
+    copyTextureToTexture(encoder, source, destination) {
+        encoder.copyTextureToTexture(
+            { texture: source.GPUTexture },
+            { texture: destination.GPUTexture },
+            {
+                width: destination.width,
+                height: destination.height,
+                depthOrArrayLayers: destination.depth
             }
-            renderPass.setBindGroup(0, mesh.material.bindGroup)
-            renderPass.setBindGroup(1, scene.bindGroup)
-            renderPass.setBindGroup(2, camera.bindGroup)
-            renderPass.setBindGroup(3, mesh.bindGroup)
-            renderPass.setIndexBuffer(
-                mesh.geometry.index.GPUBuffer, mesh.geometry.index.format)
-            renderPass.drawIndexed(mesh.geometry.index.length)
-
-        }
-
-        renderPass.end()
-
-
-        const finish = this.encoder.finish()
-        this.device.queue.submit([finish])
-        this.encoder = null
+        )
     }
 
     /*
@@ -379,17 +377,7 @@ class WebGPUInstance {
             )
         }
     
-        copyTextureToTexture(source, destination) {
-            this.encoder.copyTextureToTexture(
-                { texture: source.texture },
-                { texture: destination.texture },
-                {
-                    width: destination.width,
-                    height: destination.height,
-                    depthOrArrayLayers: destination.depth
-                }
-            )
-        }*/
+        */
 }
 
 export default WebGPUInstance

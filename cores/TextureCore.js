@@ -18,6 +18,7 @@ class TextureCore {
         this.visibility = null
         this.sampleType = "float"
         this.isMultisampled = false
+        this.access = null
     }
 
     setGPUTexture(texture) {
@@ -25,9 +26,20 @@ class TextureCore {
     }
 }
 
+class TargetTexture2D extends TextureCore {
+    constructor(name, width, height) {
+        super(name, "render", width, height, 1, "2d", "bgra8unorm")
+
+        this.data = new Uint8Array(width * height * 4)
+        this.usage = GPUTextureUsage.COPY_DST |
+            GPUTextureUsage.TEXTURE_BINDING
+        this.visibility = GPUShaderStage.FRAGMENT
+    }
+}
+
 class ExternalImageTexture extends TextureCore {
     constructor(name, width, height, data) {
-        super(name, "render", width, height, 1, "2d", "rgba8unorm")
+        super(name, "image", width, height, 1, "2d", "rgba8unorm")
         this.isExternalTexture = true
 
         this.data = data
@@ -47,4 +59,19 @@ class DepthTexture extends TextureCore {
     }
 }
 
-export { TextureCore, ExternalImageTexture, DepthTexture }
+class StorageTexture extends TextureCore {
+    constructor(name, width, height, depth = 1, dimension = "2d") {
+        super(name, "storage", width, height, depth, dimension, "bgra8unorm")
+
+        this.isStorageTexture = true
+        this.access = "write-only"
+        this.data = new Uint8Array(width*height*depth*4)
+        this.usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC
+            | GPUTextureUsage.STORAGE_BINDING
+        this.visibility = GPUShaderStage.COMPUTE
+    }
+
+
+}
+
+export { TextureCore, ExternalImageTexture, DepthTexture, StorageTexture, TargetTexture2D }
