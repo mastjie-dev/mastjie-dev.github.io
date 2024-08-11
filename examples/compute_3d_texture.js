@@ -11,7 +11,7 @@ import GeometryUtils from '../scenes/GeometryUtils.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
 
-import blueNoisePNG from '/blue_noise.png'
+import blueNoisePNG from '../public/blue_noise.png'
 
 const shaderCode = `
 struct VSOutput {
