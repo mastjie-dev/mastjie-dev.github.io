@@ -6,7 +6,7 @@ import Mesh from '/scenes/Mesh.js'
 import { PerspectiveCamera } from '/scenes/Camera.js'
 import VARS from '/cores/VARS.js'
 
-import GeometryUtils from '../scenes/GeometryUtils'
+import GeometryUtils from '../scenes/GeometryUtils.js'
 
 const shaderCode = `
     struct VSOutput {
