@@ -26,11 +26,11 @@ class TextureCore {
     }
 }
 
-class TargetTexture2D extends TextureCore {
-    constructor(name, width, height) {
-        super(name, "render", width, height, 1, "2d", "bgra8unorm")
+class TargetTexture extends TextureCore {
+    constructor(name, width, height, depth = 1, dimension = "2d") {
+        super(name, "render", width, height, depth, dimension, "bgra8unorm")
 
-        this.data = new Uint8Array(width * height * 4)
+        this.data = new Uint8Array(width * height * depth * 4) // assume 4 colors channel
         this.usage = GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING
         this.visibility = GPUShaderStage.FRAGMENT
@@ -70,8 +70,12 @@ class StorageTexture extends TextureCore {
             | GPUTextureUsage.STORAGE_BINDING
         this.visibility = GPUShaderStage.COMPUTE
     }
-
-
 }
 
-export { TextureCore, ExternalImageTexture, DepthTexture, StorageTexture, TargetTexture2D }
+export {
+    TextureCore,
+    ExternalImageTexture,
+    DepthTexture,
+    StorageTexture,
+    TargetTexture,
+}
