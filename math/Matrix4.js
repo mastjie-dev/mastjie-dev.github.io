@@ -1,5 +1,4 @@
 import Vector3 from "./Vector3"
-import { mat4 } from "wgpu-matrix"
 
 class Matrix4 {
     constructor() {
