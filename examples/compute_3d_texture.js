@@ -11,8 +11,6 @@ import GeometryUtils from '../scenes/GeometryUtils.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
 
-import blueNoisePNG from '../public/blue_noise.png'
-
 const shaderCode = `
 struct VSOutput {
     @builtin(position) position: vec4f,
@@ -160,7 +158,9 @@ async function main() {
     /**
      *  Render Stage
      */
-    const blueNoiseBitmap = await loadImageBitmap(blueNoisePNG)
+    const image = document.createElement("img")
+    image.src = "/public/blue_noise.png"
+    const blueNoiseBitmap = await loadImageBitmap(image.src)
 
     const shaderModule = instance.createShaderModule(shaderCode)
     const data = GeometryUtils.createPlane(2, 2, 1, 1)
