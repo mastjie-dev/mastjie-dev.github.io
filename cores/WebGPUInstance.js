@@ -334,50 +334,11 @@ class WebGPUInstance {
         )
     }
 
-    /*
-    
-        createComputePipeline(computeObject, shader) {
-            const module = this.createShaderModule(shader, "compute")
-    
-            const { bindGroupLayout, bindGroup } = this.createBindGroup(computeObject.props)
-            computeObject.bindGroup = bindGroup
-    
-            const pipelineLayout = this.device.createPipelineLayout({
-                bindGroupLayouts: [bindGroupLayout]
-            })
-    
-            const pipeline = this.device.createComputePipeline({
-                layout: pipelineLayout,
-                compute: {
-                    module
-                }
-            })
-            computeObject.pipeline = pipeline
-        }
-    
-        beginCompute(computeObject) {
-            const { pipeline, bindGroup, workgroupCount } = computeObject
-    
-            this.encoder = this.device.createCommandEncoder()
-            const pass = this.encoder.beginComputePass()
-            pass.setPipeline(pipeline)
-            pass.setBindGroup(0, bindGroup)
-            pass.dispatchWorkgroups(workgroupCount.x, workgroupCount.y, workgroupCount.z)
-            pass.end()
-        }
-    
-        submit() {
-            this.device.queue.submit([this.encoder.finish()])
-            this.encoder = null
-        }
-    
-        copyBufferToBuffer(source, destination, sOffset = 0, dOffset = 0) {
-            this.encoder.copyBufferToBuffer(
-                source, sOffset, destination, dOffset, destination.size
-            )
-        }
-    
-        */
+    copyBufferToBuffer(source, destination, sOffset = 0, dOffset = 0) {
+        this.encoder.copyBufferToBuffer(
+            source, sOffset, destination, dOffset, destination.size
+        )
+    }
 }
 
 export default WebGPUInstance
