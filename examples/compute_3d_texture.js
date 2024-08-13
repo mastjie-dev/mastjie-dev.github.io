@@ -1,6 +1,6 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import BufferCore from '../cores/BufferCore.js'
-import { DepthTexture, ExternalImageTexture, StorageTexture, TargetTexture } from '../cores/TextureCore.js'
+import { ExternalImageTexture, StorageTexture, TargetTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
 import VARS from '../cores/VARS.js'
 
@@ -10,6 +10,7 @@ import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
+import { PipelineDescriptorBuilder } from '../cores/Builder.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -118,6 +119,7 @@ async function main() {
     canvas.width = width
     canvas.height = height
     canvas.style.display = "block"
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat()
 
     const instance = new WebGPUInstance()
     await instance.init()
@@ -125,7 +127,7 @@ async function main() {
     const context = canvas.getContext("webgpu")
     context.configure({
         device: instance.device,
-        format: navigator.gpu.getPreferredCanvasFormat()
+        format: canvasFormat
     })
 
     /**
@@ -180,8 +182,7 @@ async function main() {
     mat.addBuffer(time)
     mat.addTexture(worleyTexture)
     mat.addTexture(blueNoiseTexture)
-    mat.addSampler(new SamplerCore())
-    mat.cullMode = "none"
+    mat.addSampler(new SamplerCore("", { addressModeU: "mirror-repeat" }))
 
     instance
         .createAndWriteBuffer(geo.attributes[0])
@@ -205,16 +206,19 @@ async function main() {
         .createBindGroupEntries(mat.samplers[0], mat.bindGroup.entries)
         .createBindGroup(mat, mat.bindGroup.entries)
 
-
-    const mesh = new Mesh(geo, mat, shaderModule)
+    const mesh = new Mesh(geo, mat)
     const renderPipelineLayout = instance.createPipelineLayout(mat.bindGroupLayout.GPUBindGroupLayout)
-    const renderObject = instance.createRenderPipeline(mesh, renderPipelineLayout)
+    
+    const pipelineDescriptor = PipelineDescriptorBuilder
+        .start()
+        .layout(renderPipelineLayout)
+        .vertex(shaderModule, geo.vertexBufferLayout)
+        .fragment(shaderModule, canvasFormat)
+        .end()
+    
+    const renderObject = instance.createRenderPipeline(mesh, pipelineDescriptor)
 
-    const depthTexture = new DepthTexture("depth", width, height)
-    depthTexture.format = "depth24plus"
-    instance.createTexture(depthTexture)
-
-    const renderPassDescriptor = structuredClone(VARS.RenderPassDescriptor.Standard)
+    const renderPassDescriptor = structuredClone(VARS.RenderPassDescriptor.Basic)
 
     instance.custom(device => {
         const encoder = device.createCommandEncoder()
@@ -238,7 +242,6 @@ async function main() {
             const encoder = device.createCommandEncoder()
 
             renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
-            renderPassDescriptor.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
             const renderPass = encoder.beginRenderPass(renderPassDescriptor)
 
             renderPass.setPipeline(renderObject.pipeline)
