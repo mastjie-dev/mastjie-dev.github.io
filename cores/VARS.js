@@ -37,6 +37,14 @@ const Buffer = {
 }
 
 const RenderPassDescriptor = {
+    Basic: {
+        colorAttachments: [{
+            view: null,
+            clearColor: [0, 0, 0, 0],
+            loadOp: "clear",
+            storeOp: "store",
+        }],
+    },
     Standard: {
         colorAttachments: [{
             view: null,

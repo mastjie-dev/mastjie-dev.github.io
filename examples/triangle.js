@@ -52,7 +52,7 @@ async function main() {
     const shaderModule = instance.createShaderModule(shaderCode)
     const vertices = new Float32Array([-1, -1, 1, -1, 0, 1])
 
-    const triGeometry = new BaseGeometry("box geometry")
+    const triGeometry = new BaseGeometry("tris geometry")
     triGeometry.addAttributes(
         new BufferCore("position", "attribute", vertices, VARS.Buffer.Attribute32x2))
 
@@ -86,28 +86,24 @@ async function main() {
         .end()
 
     const renderObject = instance.createRenderPipeline(triMesh, pipelineDescriptor)
+    
+    instance.custom(device => {
+        const renderPassDescriptor = structuredClone(VARS.RenderPassDescriptor.Basic)
+        renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
 
-    const render = () => {
-        instance.custom(device => {
-            const renderPassDescriptor = structuredClone(VARS.RenderPassDescriptor.Standard)
-            renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
-            renderPassDescriptor.depthStencilAttachment = undefined
+        const encoder = device.createCommandEncoder()
 
-            const encoder = device.createCommandEncoder()
+        const renderPass = encoder.beginRenderPass(renderPassDescriptor)
+        renderPass.setPipeline(renderObject.pipeline)
+        renderPass.setVertexBuffer(0, renderObject.mesh.geometry.attributes[0].GPUBuffer)
+        renderPass.setBindGroup(0, renderObject.mesh.material.bindGroup.GPUBindGroup)
+        renderPass.draw(3)
+        renderPass.end()
 
-            const renderPass = encoder.beginRenderPass(renderPassDescriptor)
-            renderPass.setPipeline(renderObject.pipeline)
-            renderPass.setVertexBuffer(0, renderObject.mesh.geometry.attributes[0].GPUBuffer)
-            renderPass.setBindGroup(0, renderObject.mesh.material.bindGroup.GPUBindGroup)
-            renderPass.draw(3)
-            renderPass.end()
+        const finish = encoder.finish()
+        device.queue.submit([finish])
+    })
 
-            const finish = encoder.finish()
-            device.queue.submit([finish])
-        })
-        requestAnimationFrame(render)
-    }
-    render()
 
     document.body.appendChild(canvas)
 }
