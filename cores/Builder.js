@@ -48,4 +48,4 @@ const PipelineDescriptorBuilder = {
     }
 }
 
-export default PipelineDescriptorBuilder
+export {PipelineDescriptorBuilder}

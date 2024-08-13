@@ -3,44 +3,24 @@ import BufferCore from '/cores/BufferCore.js'
 import BaseGeometry from '/scenes/BaseGeometry.js'
 import BaseMaterial from '/scenes/BaseMaterial.js'
 import Mesh from '/scenes/Mesh.js'
-import { PerspectiveCamera } from '/scenes/Camera.js'
 import VARS from '/cores/VARS.js'
-
-import GeometryUtils from '../scenes/GeometryUtils.js'
+import { PipelineDescriptorBuilder } from '/cores/Builder.js'
 
 const shaderCode = `
     struct VSOutput {
         @builtin(position) position: vec4f,
-        @location(0) normal: vec3f,
-        @location(1) uv: vec2f,
-    };
-
-    struct Camera {
-        projection: mat4x4<f32>,
-        view: mat4x4<f32>,
-    };
-
-    struct Model {
-        matrix: mat4x4<f32>,
     };
 
     @group(0) @binding(0) var<uniform> color: vec3f;
-    @group(1) @binding(0) var<uniform> model: Model;
-    @group(2) @binding(0) var<uniform> camera: Camera;
 
     @vertex
     fn main_vertex(
-        @location(0) position: vec3f,
-        @location(1) normal: vec3f,
-        @location(2) uv: vec2f,
+        @location(0) position: vec2f,
     ) -> VSOutput
     {
         var output: VSOutput;
-        let transform = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
-        
+        let transform = vec4f(position, 0., 1.);
         output.position = transform;
-        output.normal = normal;
-        output.uv = uv;
 
         return output;
     }
@@ -50,8 +30,7 @@ const shaderCode = `
         input: VSOutput
     ) -> @location(0) vec4f
     {
-        return vec4f(input.normal, 1.);
-        // return vec4f(color, 1.);
+        return vec4f(color, 1.);
     }
 `
 
@@ -71,72 +50,45 @@ async function main() {
     })
 
     const shaderModule = instance.createShaderModule(shaderCode)
+    const vertices = new Float32Array([-1, -1, 1, -1, 0, 1])
 
-    const _d = GeometryUtils.createBox(2, 2, 2, 2, 2, 2)
+    const triGeometry = new BaseGeometry("box geometry")
+    triGeometry.addAttributes(
+        new BufferCore("position", "attribute", vertices, VARS.Buffer.Attribute32x2))
 
-    const boxGeometry = new BaseGeometry("box geometry")
-    boxGeometry.addAttributes(
-        new BufferCore("position", "attribute", _d.position, VARS.Buffer.Attribute32x3))
-    boxGeometry.addAttributes(
-            new BufferCore("normal", "attribute", _d.normal, VARS.Buffer.Attribute32x3))
-    boxGeometry.addAttributes(new BufferCore("uv", "attribute", _d.uv, VARS.Buffer.Attribute32x2))
-    boxGeometry.addIndex(
-        new BufferCore("index", "index", _d.index, VARS.Buffer.IndexUint16))
-
-    const boxMaterial = new BaseMaterial("red material")
-    boxMaterial.addBuffer(
+    const triMaterial = new BaseMaterial("red material")
+    triMaterial.addBuffer(
         new BufferCore("red color", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform))
 
-    const boxMesh = new Mesh(boxGeometry, boxMaterial, shaderModule)
-    boxMesh.update()
-    const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight)
-    camera.position.set(0, -10, -20)
-    camera.update()
+    const triMesh = new Mesh(triGeometry, triMaterial)
+    triMesh.update()
 
     instance
-        .createAndWriteBuffer(boxGeometry.attributes[0])
-        .createAndWriteBuffer(boxGeometry.attributes[1])
-        .createAndWriteBuffer(boxGeometry.attributes[2])
-        .createAndWriteBuffer(boxGeometry.index)
-        .createVertexBufferLayout(boxGeometry)
+        .createAndWriteBuffer(triGeometry.attributes[0])
+        .createVertexBufferLayout(triGeometry)
 
-        .createAndWriteBuffer(boxMaterial.buffers[0])
+        .createAndWriteBuffer(triMaterial.buffers[0])
         .createBindGroupLayoutEntries(
-            boxMaterial.buffers[0], boxMaterial.bindGroupLayout.entries)
-        .createBindGroupLayout(boxMaterial, boxMaterial.bindGroupLayout.entries)
-        .createBindGroupEntries(boxMaterial.buffers[0], boxMaterial.bindGroup.entries)
-        .createBindGroup(boxMaterial, boxMaterial.bindGroup.entries)
+            triMaterial.buffers[0], triMaterial.bindGroupLayout.entries)
+        .createBindGroupLayout(triMaterial, triMaterial.bindGroupLayout.entries)
+        .createBindGroupEntries(triMaterial.buffers[0], triMaterial.bindGroup.entries)
+        .createBindGroup(triMaterial, triMaterial.bindGroup.entries)
 
-        .createAndWriteBuffer(boxMesh.buffer)
-        .createBindGroupLayoutEntries(boxMesh.buffer, boxMesh.bindGroupLayout.entries)
-        .createBindGroupLayout(boxMesh, boxMesh.bindGroupLayout.entries)
-        .createBindGroupEntries(boxMesh.buffer, boxMesh.bindGroup.entries)
-        .createBindGroup(boxMesh, boxMesh.bindGroup.entries)
+    const pipelineLayout = instance
+        .createPipelineLayout(triMaterial.bindGroupLayout.GPUBindGroupLayout)
 
-        .createAndWriteBuffer(camera.buffer)
-        .createBindGroupLayoutEntries(camera.buffer, camera.bindGroupLayout.entries)
-        .createBindGroupLayout(camera, camera.bindGroupLayout.entries)
-        .createBindGroupEntries(camera.buffer, camera.bindGroup.entries)
-        .createBindGroup(camera, camera.bindGroup.entries)
+    const pipelineDescriptor = PipelineDescriptorBuilder
+        .start()
+        .label("triangle pipeline")
+        .layout(pipelineLayout)
+        .vertex(shaderModule, triGeometry.vertexBufferLayout)
+        .fragment(shaderModule, canvasFormat)
+        .end()
 
-    const pipelineLayout = instance.createPipelineLayout(
-        boxMaterial.bindGroupLayout.GPUBindGroupLayout,
-        boxMesh.bindGroupLayout.GPUBindGroupLayout,
-        camera.bindGroupLayout.GPUBindGroupLayout,
-    )
-    const renderObject = instance.createRenderPipeline(boxMesh, pipelineLayout, descriptor => {
-        descriptor.depthStencil = undefined
-    })
-
+    const renderObject = instance.createRenderPipeline(triMesh, pipelineDescriptor)
 
     const render = () => {
         instance.custom(device => {
-            boxMesh.rotation.y += .025
-            boxMesh.rotation.z += .018
-            boxMesh.update()
-
-            instance.writeBuffer(boxMesh.buffer)
-
             const renderPassDescriptor = structuredClone(VARS.RenderPassDescriptor.Standard)
             renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
             renderPassDescriptor.depthStencilAttachment = undefined
@@ -146,15 +98,8 @@ async function main() {
             const renderPass = encoder.beginRenderPass(renderPassDescriptor)
             renderPass.setPipeline(renderObject.pipeline)
             renderPass.setVertexBuffer(0, renderObject.mesh.geometry.attributes[0].GPUBuffer)
-            renderPass.setVertexBuffer(1, renderObject.mesh.geometry.attributes[1].GPUBuffer)
-            renderPass.setVertexBuffer(2, renderObject.mesh.geometry.attributes[2].GPUBuffer)
             renderPass.setBindGroup(0, renderObject.mesh.material.bindGroup.GPUBindGroup)
-            renderPass.setBindGroup(1, renderObject.mesh.bindGroup.GPUBindGroup)
-            renderPass.setBindGroup(2, camera.bindGroup.GPUBindGroup)
-            renderPass.setIndexBuffer(renderObject.mesh.geometry.index.GPUBuffer,
-                renderObject.mesh.geometry.index.format
-            )
-            renderPass.drawIndexed(renderObject.mesh.geometry.index.length)
+            renderPass.draw(3)
             renderPass.end()
 
             const finish = encoder.finish()
