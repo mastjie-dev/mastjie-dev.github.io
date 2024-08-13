@@ -49,16 +49,23 @@ const RenderPassDescriptor = {
             depthClearValue: 1.,
             depthLoadOp: "clear",
             depthStoreOp: "store",
+            stencilClearValue: 0,
+            stencilLoadOp: 'clear',
+            stencilStoreOp: 'store',
         }
-    }
-}
-
-const PipelineDescriptor = {
-    
+    },
+    Shadow: {
+        colorAttachments: [],
+        depthStencilAttachment: {
+            view: null,
+            depthClearValue: 1.,
+            depthLoadOp: "clear",
+            depthStoreOp: "store",
+        }
+    },
 }
 
 export default {
     Buffer,
-    PipelineDescriptor,
     RenderPassDescriptor,
 }

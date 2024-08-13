@@ -14,7 +14,7 @@ class BaseMaterial {
         this.topology = "triangle-list"
         this.fragmentEnabled = true
         this.depthWriteEnabled = true
-        this.depthFormat = "depth24plus"
+        this.depthFormat = "depth24plus-stencil8"
         this.depthCompare = "less"
 
         this.bindGroup = new BindGroup()

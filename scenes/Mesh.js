@@ -4,6 +4,7 @@ import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
 import BufferCore from '../cores/BufferCore.js'
 import VARS from '../cores/VARS.js'
+import Matrix4 from '../math/Matrix4.js'
 
 class Mesh extends NodeCore {
     constructor(geometry, material, shaderModule) {
@@ -14,7 +15,8 @@ class Mesh extends NodeCore {
         this.material = material
         this.shaderModule = shaderModule
 
-        this.buffer = new BufferCore("mesh", "uniform", new Float32Array(16), VARS.Buffer.Uniform)
+        this.normalMatrix = new Matrix4()
+        this.buffer = new BufferCore("mesh", "uniform", new Float32Array(32), VARS.Buffer.Uniform)
 
         this.bindGroup = new BindGroup()
         this.bindGroupLayout = new BindGroupLayout
@@ -22,6 +24,11 @@ class Mesh extends NodeCore {
 
     updateBuffer() {
         this.buffer.data.set(this.worldMatrix.elements)
+        this.buffer.data.set(this.normalMatrix.elements, 16)
+    }
+
+    updateNormalMatrix() {
+        
     }
 
     update() {

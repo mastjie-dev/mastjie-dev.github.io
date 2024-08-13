@@ -56,6 +56,7 @@ class DepthTexture extends TextureCore {
 
         this.usage = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
         this.visibility = GPUShaderStage.FRAGMENT
+        this.sampleType = "depth"
     }
 }
 

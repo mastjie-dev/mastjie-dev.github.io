@@ -242,72 +242,12 @@ class WebGPUInstance {
         })
     }
 
-    createRenderPipeline(mesh, pipelineLayout, callback) {
-        const { geometry, material, shaderModule } = mesh
-
-        const descriptor = {
-            label: mesh.name,
-            layout: pipelineLayout,
-            vertex: {
-                module: shaderModule,
-                entryPoint: "main_vertex",
-                buffers: geometry.vertexBufferLayout,
-            },
-            fragment: {
-                module: shaderModule,
-                entryPont: "main_fragment",
-                targets: [{ format: this.canvasFormat }] // TODO: more options, eg: depth
-            },
-            primitive: {
-                cullMode: material.cullMode,
-            },
-            depthStencil: {
-                depthWriteEnabled: material.depthWriteEnabled,
-                format: material.depthFormat,
-                depthCompare: material.depthCompare,
-            }
+    createRenderPipeline(mesh, pipelineDescriptor) {
+        const pipeline = this.device.createRenderPipeline(pipelineDescriptor)
+        return {
+            mesh,
+            pipeline
         }
-
-        if (callback) {
-            callback(descriptor)
-        }
-
-        const pipeline = this.device.createRenderPipeline(descriptor)
-        const renderObject = {
-            pipeline,
-            mesh
-        }
-        return renderObject
-    }
-
-    createRenderPipelineAsync(mesh, pipelineLayout) {
-        const { geometry, material, shaderModule } = mesh
-
-        const descriptor = {
-            label: mesh.name,
-            layout: pipelineLayout,
-            vertex: {
-                module: shaderModule,
-                entryPoint: "main_vertex",
-                buffers: geometry.vertexBufferLayout,
-            },
-            fragment: {
-                module: shaderModule,
-                entryPont: "main_fragment",
-                targets: [{ format: this.canvasFormat }] // TODO: more options, eg: depth
-            },
-            primitive: {
-                cullMode: material.cullMode,
-            },
-            depthStencil: {
-                depthWriteEnabled: material.depthWriteEnabled,
-                format: material.depthFormat,
-                depthCompare: material.depthCompare,
-            }
-        }
-
-        const pipeline = this.device.createRenderPipelineAsync(descriptor)
-        mesh.pipeline = pipeline
     }
 
     createComputePipeline(computeObject, pipelineLayout, computeModule) {
