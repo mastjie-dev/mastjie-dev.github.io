@@ -61,7 +61,6 @@ async function main() {
         new BufferCore("red color", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform))
 
     const triMesh = new Mesh(triGeometry, triMaterial)
-    triMesh.update()
 
     instance
         .createAndWriteBuffer(triGeometry.attributes[0])
