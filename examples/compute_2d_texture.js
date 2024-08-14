@@ -1,6 +1,6 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import BufferCore from '../cores/BufferCore.js'
-import { DepthTexture, StorageTexture, TargetTexture } from '../cores/TextureCore.js'
+import { StorageTexture, TargetTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
 import VARS from '../cores/VARS.js'
 
@@ -98,7 +98,7 @@ async function main() {
      *  Compute Stage
      */
     const computeModule = instance.createShaderModule(computeCode)
-    const st2d = new StorageTexture("st2d", 256, 256)
+    const st2d = new StorageTexture(256, 256)
     instance.createAndWriteTexture(st2d)
 
     const computeObject = {
@@ -132,7 +132,7 @@ async function main() {
     geo.addAttributes(new BufferCore("uv", "attributes", data.uv, VARS.Buffer.Attribute32x2))
     geo.addIndex(new BufferCore("index", "index", data.index, VARS.Buffer.IndexUint16))
 
-    const worleyTexture = new TargetTexture("worley", 256, 256)
+    const worleyTexture = new TargetTexture(256, 256)
 
     const mat = new BaseMaterial()
     mat.addTexture(worleyTexture)

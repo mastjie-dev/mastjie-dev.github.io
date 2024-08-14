@@ -186,7 +186,7 @@ async function main() {
     })
 
     const renderPassDesc = structuredClone(VARS.RenderPassDescriptor.Standard)
-    const depthTexture = new DepthTexture("depth texture", width, height)
+    const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
 
     const render = () => {

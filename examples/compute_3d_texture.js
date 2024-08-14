@@ -135,7 +135,7 @@ async function main() {
      */
     const computeModule = instance.createShaderModule(computeCode)
 
-    const st3d = new StorageTexture("worleyCompute", 128, 128, 128, "3d")
+    const st3d = new StorageTexture(128, 128, 128, "3d")
     instance.createAndWriteTexture(st3d)
 
     const computeObject = {
@@ -174,8 +174,8 @@ async function main() {
     geo.addIndex(new BufferCore("index", "index", data.index, VARS.Buffer.IndexUint16))
 
     const time = new BufferCore("time", "uniform", new Float32Array([0]), VARS.Buffer.Uniform)
-    const worleyTexture = new TargetTexture("worley", 128, 128, 128, "3d")
-    const blueNoiseTexture = new ExternalImageTexture("blueNoise", blueNoiseBitmap.width,
+    const worleyTexture = new TargetTexture(128, 128, 128, "3d")
+    const blueNoiseTexture = new ExternalImageTexture(blueNoiseBitmap.width,
         blueNoiseBitmap.height, blueNoiseBitmap)
 
     const mat = new BaseMaterial()
