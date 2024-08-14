@@ -24,6 +24,27 @@ class Vector3 {
         return this
     }
 
+    random() {
+        this.x = Math.random()
+        this.y = Math.random()
+        this.z = Math.random()
+        return this
+    }
+
+    subScalar(s) {
+        this.x -= s
+        this.y -= s
+        this.z -= s
+        return this
+    }
+
+    multiplyScalar(s) {
+        this.x *= s
+        this.y *= s
+        this.z *= s
+        return this
+    }
+
     subVector(a, b) {
         this.x = a.x - b.x
         this.y = a.y - b.y
