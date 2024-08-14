@@ -7,13 +7,11 @@ import VARS from '../cores/VARS.js'
 import Matrix4 from '../math/Matrix4.js'
 
 class Mesh extends NodeCore {
-    constructor(geometry, material, shaderModule) {
-        super("mesh")
-        this.name = ""
+    constructor(geometry, material, name="") {
+        super(name)
         this.isMesh = true
         this.geometry = geometry
         this.material = material
-        this.shaderModule = shaderModule
 
         this.normalMatrix = new Matrix4()
         this.buffer = new BufferCore("mesh", "uniform", new Float32Array(32), VARS.Buffer.Uniform)
@@ -28,16 +26,7 @@ class Mesh extends NodeCore {
     }
 
     updateNormalMatrix() {
-        
-    }
-
-    update() {
-        this.localMatrix.identity()
-        this.worldMatrix.identity()
-        this.updateLocalMatrix()
-        this.updateWorldMatrix()
-        // this.updateNormalMatrix()
-        this.updateBuffer()
+      // TODO:   
     }
 }
 

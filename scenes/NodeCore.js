@@ -21,9 +21,11 @@ class NodeCore {
 
     addChild(child) {
         this.children.push(child)
+        child.addParent(this)
     }
 
     updateLocalMatrix() {
+        this.localMatrix.identity()
         this.localMatrix
             .translate(this.position)
             .rotateX(this.rotation.x)
@@ -33,11 +35,17 @@ class NodeCore {
     }
 
     updateWorldMatrix() {
+        this.worldMatrix.identity()
         if (!this.parent) {
             this.worldMatrix.copy(this.localMatrix)
             return
         }
         this.worldMatrix.multiplyMatrix(this.parent.worldMatrix, this.localMatrix)
+    }
+
+    updateMatrixWorld() {
+        this.updateLocalMatrix()
+        this.updateWorldMatrix()
     }
 }
 

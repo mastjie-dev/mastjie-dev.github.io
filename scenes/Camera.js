@@ -23,13 +23,7 @@ class Camera extends NodeCore {
     }
 
     updateViewMatrix() {
-        this.viewMatrix.lookAt(
-            this.position, this.target, this.up
-        )
-    }
-
-    updateBuffer() {
-        this.buffer.data.set(this.projectionMatrix.elements)
+        this.viewMatrix.lookAt(this.position, this.target, this.up)
         this.buffer.data.set(this.viewMatrix.elements, 16)
     }
 }
@@ -46,12 +40,7 @@ class PerspectiveCamera extends Camera {
 
     updateProjectionMatrix() {
         this.projectionMatrix.perspective(this.fov, this.aspect, this.near, this.far)
-    }
-
-    update() {
-        this.updateProjectionMatrix()
-        this.updateViewMatrix()
-        this.updateBuffer()
+        this.buffer.data.set(this.projectionMatrix.elements)
     }
 }
 
@@ -68,12 +57,7 @@ class OrthographicCamera extends Camera {
 
     updateProjectionMatrix() {
         this.projectionMatrix.orthographic(this.left, this.right, this.bottom, this.top, this.near, this.far)
-    }
-
-    update() {
-        this.updateProjectionMatrix()
-        this.updateViewMatrix()
-        this.updateBuffer()
+        this.buffer.data.set(this.projectionMatrix.elements)
     }
 }
 
