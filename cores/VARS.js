@@ -33,7 +33,10 @@ const Buffer = {
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT
     },
 
-    Storage: {} // TODO
+    Storage: {
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        visibility: GPUShaderStage.COMPUTE,
+    }
 }
 
 const RenderPassDescriptor = {

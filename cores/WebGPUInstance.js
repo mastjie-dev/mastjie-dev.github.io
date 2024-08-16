@@ -274,9 +274,13 @@ class WebGPUInstance {
         )
     }
 
-    copyBufferToBuffer(source, destination, sOffset = 0, dOffset = 0) {
-        this.encoder.copyBufferToBuffer(
-            source, sOffset, destination, dOffset, destination.size
+    copyBufferToBuffer(encoder, source, destination, sOffset = 0, dOffset = 0) {
+        encoder.copyBufferToBuffer(
+            source.GPUBuffer,
+            sOffset,
+            destination.GPUBuffer,
+            dOffset,
+            destination.size
         )
     }
 }
