@@ -283,6 +283,64 @@ class WebGPUInstance {
             destination.size
         )
     }
+
+    bindGPUResource(scene, camera) {
+        if (!camera.GPUBuffer) {
+            camera.updateProjectionMatrix()
+            camera.updateViewMatrix()
+            this
+                .createAndWriteBuffer(camera.buffer)
+                .createBindGroupLayoutEntries(camera.buffer, camera.bindGroupLayout.entries)
+                .createBindGroupLayout(camera, camera.bindGroupLayout.entries)
+                .createBindGroupEntries(camera.buffer, camera.bindGroup.entries)
+                .createBindGroup(camera, camera.bindGroup.entries)
+        }
+
+        for (let mesh of scene) {
+            mesh.updateMatrixWorld()
+            mesh.updateBuffer()
+
+            if (!mesh.GPUBuffer) {
+                this.createAndWriteBuffer(mesh.buffer)
+                    .createBindGroupLayoutEntries(mesh.buffer, mesh.bindGroupLayout.entries)
+                    .createBindGroupLayout(mesh, mesh.bindGroupLayout.entries)
+                    .createBindGroupEntries(mesh.buffer, mesh.bindGroup.entries)
+                    .createBindGroup(mesh, mesh.bindGroup.entries)
+            }
+
+            const { geometry, material } = mesh
+
+            if (!geometry.vertexBufferLayout) {
+                geometry.attributes.forEach(attribute => {
+                    this.createAndWriteBuffer(attribute)
+                })
+                this.createAndWriteBuffer(geometry.index)
+                    .createVertexBufferLayout(geometry)
+            }
+
+            const { buffers, textures, samplers } = material
+
+            buffers.forEach(buffer => {
+                if (!buffer.GPUBuffer) {
+                    this.createAndWriteBuffer(buffer)
+                }
+                this.createBindGroupLayoutEntries(buffer, material.bindGroupLayout.entries)
+                    .createBindGroupEntries(buffer, material.bindGroup.entries)
+            })
+
+            textures.forEach(texture => {
+
+            })
+
+            samplers.forEach(sampler => {
+
+            })
+
+            this.createBindGroupLayout(material, material.bindGroupLayout.entries)
+                .createBindGroup(material, material.bindGroup.entries)
+
+        }
+    }
 }
 
 export default WebGPUInstance

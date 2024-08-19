@@ -1,7 +1,9 @@
+import BufferCore from "../cores/BufferCore"
+import VARS from "../cores/VARS"
+import BaseGeometry from "./BaseGeometry"
 
-function createPlane( // TODO: change width->horizontal, height=vertical
-    width = 1, height = 1, widthSegment = 1, heightSegment = 1, face={})
-{
+function createPlaneInternal( // TODO: change width->horizontal, height=vertical
+    width = 1, height = 1, widthSegment = 1, heightSegment = 1, face = {}) {
     const position = []
     const normal = []
     const uv = []
@@ -70,7 +72,7 @@ function createPlane( // TODO: change width->horizontal, height=vertical
 
             position.push(px, py, pz)
             normal.push(...nr)
-            
+
             uv.push(uvx, uvy)
             uvx += uvxStep
         }
@@ -107,6 +109,26 @@ function createPlane( // TODO: change width->horizontal, height=vertical
     }
 }
 
+function createPlane( // TODO: change width->horizontal, height=vertical
+    width = 1, height = 1, widthSegment = 1, heightSegment = 1, face = {}) {
+    
+    const {
+        position, normal, uv, index
+    } = createPlaneInternal(width, height, widthSegment, heightSegment)
+
+    const geometry = new BaseGeometry("plane geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", new Float32Array(position), VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "normal", "attribute", new Float32Array(normal), VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "uv", "attribute", new Float32Array(uv), VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", new Uint16Array(index), VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
 function createBox(
     width = 1, height = 1, depth = 1, widthSegment = 1,
     heightSegment = 1, depthSegment = 1,
@@ -117,8 +139,8 @@ function createBox(
     const index = []
     let indexLength
 
-    const front = createPlane(width, height, widthSegment, heightSegment,{
-        dir: "front", off: -depth/2
+    const front = createPlaneInternal(width, height, widthSegment, heightSegment, {
+        dir: "front", off: -depth / 2
     })
     position.push(...front.position)
     normal.push(...front.normal)
@@ -126,63 +148,101 @@ function createBox(
     index.push(...front.index)
     indexLength = position.length / 3
 
-    const back = createPlane(width, height, widthSegment, heightSegment,{
-        dir: "back", off: depth/2
+    const back = createPlaneInternal(width, height, widthSegment, heightSegment, {
+        dir: "back", off: depth / 2
     })
     position.push(...back.position)
     normal.push(...back.normal)
     uv.push(...back.uv)
-    back.index.forEach(i => index.push(i+indexLength))
+    back.index.forEach(i => index.push(i + indexLength))
     indexLength = position.length / 3
 
-    const up = createPlane(width, depth, widthSegment, depthSegment, {
-        dir: "up", off: -height/2
+    const up = createPlaneInternal(width, depth, widthSegment, depthSegment, {
+        dir: "up", off: -height / 2
     })
     position.push(...up.position)
     normal.push(...up.normal)
     uv.push(...up.uv)
-    up.index.forEach(i => index.push(i+indexLength))
+    up.index.forEach(i => index.push(i + indexLength))
     indexLength = position.length / 3
 
-    const down = createPlane(width, depth, widthSegment, depthSegment, {
-        dir: "down", off: height/2
+    const down = createPlaneInternal(width, depth, widthSegment, depthSegment, {
+        dir: "down", off: height / 2
     })
     position.push(...down.position)
     normal.push(...down.normal)
     uv.push(...down.uv)
-    down.index.forEach(i => index.push(i+indexLength))
+    down.index.forEach(i => index.push(i + indexLength))
     indexLength = position.length / 3
 
-    const right = createPlane(depth, height, depthSegment, heightSegment, {
-        dir: "right", off: width/2
+    const right = createPlaneInternal(depth, height, depthSegment, heightSegment, {
+        dir: "right", off: width / 2
     })
     position.push(...right.position)
     normal.push(...right.normal)
     uv.push(...right.uv)
-    right.index.forEach(i => index.push(i+indexLength))
+    right.index.forEach(i => index.push(i + indexLength))
     indexLength = position.length / 3
 
-    const left = createPlane(depth, height, depthSegment, heightSegment, {
-        dir: "left", off: -width/2
+    const left = createPlaneInternal(depth, height, depthSegment, heightSegment, {
+        dir: "left", off: -width / 2
     })
     position.push(...left.position)
     normal.push(...left.normal)
     uv.push(...left.uv)
-    left.index.forEach(i => index.push(i+indexLength))
+    left.index.forEach(i => index.push(i + indexLength))
     indexLength = position.length / 3
 
 
-    return {
-        position: new Float32Array(position),
-        normal: new Float32Array(normal),
-        uv: new Float32Array(uv),
-        index: new Uint16Array(index)
+    const geometry = new BaseGeometry("box geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", new Float32Array(position), VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "normal", "attribute", new Float32Array(normal), VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "uv", "attribute", new Float32Array(uv), VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", new Uint16Array(index), VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
+function createGrid(dimension = 100, gridSize = 1) {
+    const segment = dimension / gridSize
+    const vertices = segment + 1
+    const {
+        position, normal, uv
+    } = createPlaneInternal(dimension, dimension, segment, segment, { dir: "up" })
+
+    const index = []
+    for (let y = 0; y < segment; y++) {
+        for (let x = 0; x < segment; x++) {
+            const v1 = x + y * vertices
+            const v2 = v1 + vertices
+            const v3 = v2 + 1
+            const v4 = v1 + 1
+
+            index.push(v1, v2, v2, v3, v3, v4, v4, v1)
+        }
     }
+
+    const geometry = new BaseGeometry("plane geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", new Float32Array(position), VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "normal", "attribute", new Float32Array(normal), VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "uv", "attribute", new Float32Array(uv), VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", new Uint16Array(index), VARS.Buffer.IndexUint16))
+
+    return geometry
 }
 
 const GeometryUtils = {
     createPlane,
     createBox,
+    createGrid,
 }
 
 export default GeometryUtils

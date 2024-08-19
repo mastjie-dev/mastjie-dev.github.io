@@ -66,51 +66,36 @@ async function main() {
     const instance = new WebGPUInstance()
     await instance.init()
 
-    const context = canvas.getContext("webgpu")
+const context = canvas.getContext("webgpu")
     context.configure({
         device: instance.device,
         format: canvasFormat
     })
 
-    const data = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
-
-    const geo = new BaseGeometry()
-    geo.addAttributes(new BufferCore(
-        "position", "attribute", data.position, VARS.Buffer.Attribute32x3))
-    geo.addAttributes(new BufferCore("uv", "attributes", data.uv, VARS.Buffer.Attribute32x2))
-    geo.addIndex(new BufferCore("index", "index", data.index, VARS.Buffer.IndexUint16))
+    const geo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
+    const gridGeo = GeometryUtils.createGrid(100, 2)
 
     const mat = new BaseMaterial()
     mat.addBuffer(new BufferCore("blue", "uniform",
         new Float32Array([0, 0, 1]), VARS.Buffer.Uniform))
+    const lineMat = new BaseMaterial()
+    lineMat.topology = "line-list"
+    lineMat.addBuffer(new BufferCore("white", "uniform", 
+        new Float32Array([1, 1, 1]), VARS.Buffer.Uniform))
 
     const mesh = new Mesh(geo, mat)
-    mesh.updateMatrixWorld()
-    mesh.updateBuffer()
+    const grid = new Mesh(gridGeo, lineMat)
 
     const camera = new PerspectiveCamera(75, width / height)
     camera.position.set(0, -10, -25)
-    camera.updateProjectionMatrix()
-    camera.updateViewMatrix()
+    
+    const scene = [grid, mesh]
 
-    const grid = gridHelper(100, 2)
-    grid.updateMatrixWorld()
-    grid.updateBuffer()
-
-    bindVertex(instance, mesh.geometry)
-    bindResource(instance, mesh.material, mesh.material.buffers[0])
-    bindResource(instance, mesh, mesh.buffer)
-
-    bindVertex(instance, grid.geometry)
-    bindResource(instance, grid.material, grid.material.buffers[0])
-    bindResource(instance, grid, grid.buffer)
-
-    bindResource(instance, camera, camera.buffer)
+    instance.bindGPUResource(scene, camera)
 
     const shaderModule = instance.createShaderModule(shaderCode)
 
-    const meshes = [grid, mesh]
-    const renderObjects = meshes.map(mh => {
+    const renderObjects = scene.map(mh => {
         const renderPL = instance.createPipelineLayout(
             mh.material.bindGroupLayout.GPUBindGroupLayout,
             camera.bindGroupLayout.GPUBindGroupLayout,
