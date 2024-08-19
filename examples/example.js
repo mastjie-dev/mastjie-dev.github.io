@@ -12,6 +12,7 @@ import { PerspectiveCamera } from '../scenes/Camera.js'
 // import BindGroup from '../cores/BindGroup.js'
 // import BindGroupLayout from '../cores/BindGroupLayout.js'
 import { bindResource, bindVertex } from '../scenes/Utils.js'
+import gridHelper from '../scenes/Helper.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -71,7 +72,7 @@ async function main() {
         format: canvasFormat
     })
 
-    const data = GeometryUtils.createBox(2, 2, 2, 15, 15, 15)
+    const data = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
 
     const geo = new BaseGeometry()
     geo.addAttributes(new BufferCore(
@@ -88,36 +89,51 @@ async function main() {
     mesh.updateBuffer()
 
     const camera = new PerspectiveCamera(75, width / height)
-    camera.position.set(0, 0, -15)
+    camera.position.set(0, -10, -25)
     camera.updateProjectionMatrix()
     camera.updateViewMatrix()
 
-    bindVertex(instance, geo)
-    bindResource(instance, mat, mat.buffers[0])
+    const grid = gridHelper(100, 2)
+    grid.updateMatrixWorld()
+    grid.updateBuffer()
+
+    bindVertex(instance, mesh.geometry)
+    bindResource(instance, mesh.material, mesh.material.buffers[0])
     bindResource(instance, mesh, mesh.buffer)
+
+    bindVertex(instance, grid.geometry)
+    bindResource(instance, grid.material, grid.material.buffers[0])
+    bindResource(instance, grid, grid.buffer)
+
     bindResource(instance, camera, camera.buffer)
 
     const shaderModule = instance.createShaderModule(shaderCode)
 
-    const renderPL = instance.createPipelineLayout(
-        mat.bindGroupLayout.GPUBindGroupLayout,
-        camera.bindGroupLayout.GPUBindGroupLayout,
-        mesh.bindGroupLayout.GPUBindGroupLayout,
-    )
-    const rpDesc = PipelineDescriptorBuilder
-        .start()
-        .layout(renderPL)
-        .vertex(shaderModule, geo.vertexBufferLayout)
-        .fragment(shaderModule, canvasFormat)
-        .primitive(mat.cullMode)
-        .depthStencil(
-            mat.depthWriteEnabled,
-            mat.depthFormat,
-            mat.depthCompare
+    const meshes = [grid, mesh]
+    const renderObjects = meshes.map(mh => {
+        const renderPL = instance.createPipelineLayout(
+            mh.material.bindGroupLayout.GPUBindGroupLayout,
+            camera.bindGroupLayout.GPUBindGroupLayout,
+            mh.bindGroupLayout.GPUBindGroupLayout,
         )
-        .end()
 
-    const renderObject = instance.createRenderPipeline(mesh, rpDesc)
+        const desc = PipelineDescriptorBuilder
+            .start()
+            .layout(renderPL)
+            .vertex(shaderModule, mh.geometry.vertexBufferLayout)
+            .fragment(shaderModule, canvasFormat)
+            .primitive(mh.material.cullMode, mh.material.topology)
+            .depthStencil(
+                mh.material.depthWriteEnabled,
+                mh.material.depthFormat,
+                mh.material.depthCompare
+            )
+            .end()
+        
+
+        return instance.createRenderPipeline(mh, desc)
+    })
+
     const renderPassDescriptor = RenderPassDescriptorBuilder.start().end()
 
     const depthTexture = new DepthTexture(width, height)
@@ -131,18 +147,29 @@ async function main() {
             renderPassDescriptor.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
 
             const renderPass = encoder.beginRenderPass(renderPassDescriptor)
-            renderPass.setPipeline(renderObject.pipeline)
-            renderPass.setVertexBuffer(0, geo.attributes[0].GPUBuffer)
-            renderPass.setVertexBuffer(1, geo.attributes[1].GPUBuffer)
-            renderPass.setBindGroup(0, mat.bindGroup.GPUBindGroup)
-            renderPass.setBindGroup(1, camera.bindGroup.GPUBindGroup)
-            renderPass.setBindGroup(2, mesh.bindGroup.GPUBindGroup)
-            renderPass.setIndexBuffer(geo.index.GPUBuffer, geo.index.format)
-            renderPass.drawIndexed(geo.index.length)
+
+            for (let ro of renderObjects) {
+                renderPass.setPipeline(ro.pipeline)
+
+                let i = 0
+                for (let attr of ro.mesh.geometry.attributes) {
+                    renderPass.setVertexBuffer(i, attr.GPUBuffer)
+                    i++
+                }
+
+                renderPass.setBindGroup(0, ro.mesh.material.bindGroup.GPUBindGroup)
+                renderPass.setBindGroup(1, camera.bindGroup.GPUBindGroup)
+                renderPass.setBindGroup(2, ro.mesh.bindGroup.GPUBindGroup)
+                renderPass.setIndexBuffer(
+                    ro.mesh.geometry.index.GPUBuffer,
+                    ro.mesh.geometry.index.format)
+                renderPass.drawIndexed(ro.mesh.geometry.index.length)
+            }
+
             renderPass.end()
 
-            device.queue.submit([encoder.finish()])                
-            
+            device.queue.submit([encoder.finish()])
+
             // requestAnimationFrame(render)
         })
     }

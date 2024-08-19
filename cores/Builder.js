@@ -29,9 +29,10 @@ const PipelineDescriptorBuilder = {
         }
         return this
     },
-    primitive(cullMode) {
+    primitive(cullMode, topology) {
         this.descriptor.primitive = {
             cullMode,
+            topology,
         }
         return this
     },
