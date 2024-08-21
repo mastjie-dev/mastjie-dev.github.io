@@ -258,6 +258,14 @@ class WebGPUInstance {
         computeObject.pipeline = pipeline
     }
 
+    createCommandEncoder() {
+        return this.device.createCommandEncoder()
+    }
+
+    submitEncoder(finish) {
+        this.device.queue.submit(finish)
+    }
+
     custom(callback) {
         callback(this.device)
     }
@@ -284,7 +292,7 @@ class WebGPUInstance {
         )
     }
 
-    bindGPUResource(scene, camera) {
+    bindCameraResource(camera) {
         if (!camera.GPUBuffer) {
             camera.updateProjectionMatrix()
             camera.updateViewMatrix()
@@ -295,8 +303,10 @@ class WebGPUInstance {
                 .createBindGroupEntries(camera.buffer, camera.bindGroup.entries)
                 .createBindGroup(camera, camera.bindGroup.entries)
         }
+    }
 
-        for (let mesh of scene) {
+    bindSceneResource(scene) {
+        for (let mesh of scene.meshes) {
             mesh.updateMatrixWorld()
             mesh.updateBuffer()
 

@@ -1,5 +1,6 @@
 import BufferCore from "../cores/BufferCore"
 import VARS from "../cores/VARS"
+import Vector3 from "../math/Vector3"
 import BaseGeometry from "./BaseGeometry"
 
 function createPlaneInternal( // TODO: change width->horizontal, height=vertical
@@ -111,7 +112,7 @@ function createPlaneInternal( // TODO: change width->horizontal, height=vertical
 
 function createPlane( // TODO: change width->horizontal, height=vertical
     width = 1, height = 1, widthSegment = 1, heightSegment = 1, face = {}) {
-    
+
     const {
         position, normal, uv, index
     } = createPlaneInternal(width, height, widthSegment, heightSegment)
@@ -239,10 +240,93 @@ function createGrid(dimension = 100, gridSize = 1) {
     return geometry
 }
 
+function createBoxLine(width = 1, height = 1, depth = 1) {
+    const x = .5 * width
+    const y = .5 * height
+    const z = .5 * depth
+    const position = new Float32Array([
+        -x, -y, -z, x, -y, -z,
+        -x, y, -z, x, y, -z,
+        -x, -y, z, x, -y, z,
+        -x, y, z, x, y, z,
+    ])
+    const index = new Uint16Array([
+        0, 1,
+        0, 2,
+        1, 3,
+        2, 3,
+
+        4, 5,
+        4, 6,
+        5, 7,
+        6, 7,
+
+        0, 4,
+        1, 5,
+        2, 6,
+        3, 7,
+    ])
+
+    const uv = new Float32Array(8 * 3)
+
+    const geometry = new BaseGeometry("box line geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", position, VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "uv", "attribute", uv, VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", index, VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
+function createFrustumLine(angle, aspect, near, far) {
+    const rad = angle / 2 * Math.PI / 180
+
+    const t = Math.tan(rad)
+    const nx = t * aspect * near
+    const ny = t * near
+    const nz =  near
+
+    const fx = t * aspect * far
+    const fy = t * far
+    const fz = far
+
+    const position = new Float32Array([
+        -nx, -ny, nz,
+         nx, -ny, nz,
+        -nx,  ny, nz,
+         nx,  ny, nz,
+
+         -fx, -fy, fz,
+          fx, -fy, fz,
+         -fx,  fy, fz,
+          fx,  fy, fz,
+    ])
+    const uv = new Float32Array(8*3) // TODO: remov later
+    const index = new Uint16Array([
+        0, 1, 0, 2, 1, 3, 2, 3,
+        4, 5, 4, 6, 5, 7, 6, 7,
+        0, 4, 1, 5, 2, 6, 3, 7,
+    ])
+
+    const geometry = new BaseGeometry("frustum line")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", position, VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "uv", "attribute", uv, VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", index, VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
 const GeometryUtils = {
     createPlane,
     createBox,
     createGrid,
+    createBoxLine,
+    createFrustumLine,
 }
 
 export default GeometryUtils
