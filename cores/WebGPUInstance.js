@@ -339,11 +339,20 @@ class WebGPUInstance {
             })
 
             textures.forEach(texture => {
-
+                if (!texture.GPUTexture) {
+                    this.createAndWriteTexture(texture)
+                }
+                this.createBindGroupLayoutEntries(texture, material.bindGroupLayout.entries)
+                    .createBindGroupEntries(texture, material.bindGroup.entries)
             })
 
             samplers.forEach(sampler => {
+                if (!this.GPUSampler) {
+                    this.createSampler(sampler)
+                }
 
+                this.createBindGroupLayoutEntries(sampler, material.bindGroupLayout.entries)
+                    .createBindGroupEntries(sampler, material.bindGroup.entries)
             })
 
             this.createBindGroupLayout(material, material.bindGroupLayout.entries)
