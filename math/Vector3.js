@@ -31,17 +31,24 @@ class Vector3 {
         return this
     }
 
-    add(a) {
-        this.x += a.x
-        this.y += a.y
-        this.z += a.z
+    add(v3) {
+        this.x += v3.x
+        this.y += v3.y
+        this.z += v3.z
         return this
     }
 
-    sub(a) {
-        this.x -= a.x
-        this.y -= a.y
-        this.z -= a.z
+    sub(v3) {
+        this.x -= v3.x
+        this.y -= v3.y
+        this.z -= v3.z
+        return this
+    }
+
+    multiply(v3) {
+        this.x *= v3.x
+        this.y *= v3.y
+        this.z *= v3.z
         return this
     }
 
@@ -80,7 +87,24 @@ class Vector3 {
         return this
     }
 
-    cross(a, b) {
+    multiplyVector(a, b) {
+        this.x = a.x * b.x
+        this.y = a.y * b.y
+        this.z = a.z * b.z
+        return this
+    }
+
+    cross(v3) {
+        const x = this.x
+        const y = this.y
+        const z = this.z
+        this.x = y*v3.z - z*v3.y
+        this.y = z*v3.x - x*v3.z
+        this.z = x*v3.y - y*v3.x
+        return this
+    }
+
+    crossVector(a, b) {
         this.x = a.y*b.z - a.z*b.y
         this.y = a.z*b.x - a.x*b.z
         this.z = a.x*b.y - a.y*b.x
@@ -104,6 +128,35 @@ class Vector3 {
         this.x /= l
         this.y /= l
         this.z /= l
+        return this
+    }
+
+    distance(v3) {
+        return Math.sqrt(
+            (this.x - v3.x) * (this.x - v3.x) +
+            (this.y - v3.y) * (this.y - v3.y) +
+            (this.z - v3.z) * (this.z - v3.z)
+        )
+    }
+
+    lerp(v3, t) {
+        this.x += (v3.x - this.x) * t
+        this.y += (v3.y = this.y) * t
+        this.z += (v3.z = this.z) * t
+        return this
+    }
+
+    lerpVector(a, b, t) {
+        this.x = a.x + (b.x - a.x) * t
+        this.y = a.y + (b.y - a.y) * t
+        this.z = a.z + (b.z - a.z) * t
+        return this
+    }
+
+    clamp(a, b) {
+        this.x = this.x < a.x ? a.x : this.x > b.x ? b.x : this.x
+        this.y = this.y < a.y ? a.y : this.y > b.y ? b.y : this.y
+        this.z = this.z < a.z ? a.z : this.z > b.z ? b.z : this.z
         return this
     }
 }
