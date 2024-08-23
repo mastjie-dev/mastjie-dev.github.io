@@ -9,6 +9,7 @@ import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
 import { OrthographicCamera, PerspectiveCamera } from '../scenes/Camera.js'
+import Frustum from '../math/Frustum.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -97,7 +98,8 @@ struct Model {
     let rightView = textureSample(right, mapSampler, rightUV).rgb;
 
     let split = step(mid, 0);
-    let color = split * leftView + (1.-split) * rightView; 
+    let color = split * leftView + (1.-split) * rightView;
+    // let color = textureSample(left, mapSampler, input.uv).rgb;;
     
     return vec4f(color, 1.);
 }
@@ -130,12 +132,24 @@ async function main() {
     const fov = 50
     const aspect = halfWidth / height
     const near = .1
-    const far = 100
+    const far = 30
+
+    const mainCamera = new PerspectiveCamera(fov, aspect, near, far)
+    mainCamera.position.set(0, 0, -20)
+    mainCamera.target.set(-8, 0, 0)
+
+    const d = 10
+    const debugCamera = new PerspectiveCamera(75, halfWidth / height)
+    debugCamera.position.set(0, -30, -1)
+    // debugCamera.target.set(0, 0, 5)
+
+
+    const frustummath = new Frustum(mainCamera)
+    frustummath.update() 
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
     const gridGeo = GeometryUtils.createGrid(100, 2)
-    const boxLineGeo = GeometryUtils.createBoxLine(2, 1, 1)
-    const frustumLineGeo = GeometryUtils.createFrustumLine(fov, aspect, far, near)
+    const frustumLineGeo = GeometryUtils.createFrustumLine(frustummath)
 
     const blue = new BufferCore("blue", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform)
     const white = new BufferCore("white", "uniform", new Float32Array([1, 1, 1]), VARS.Buffer.Uniform)
@@ -154,13 +168,7 @@ async function main() {
 
     const box = new Mesh(boxGeo, blueMat)
     const grid = new Mesh(gridGeo, whiteLineMat)
-
-    const mainCamera = new PerspectiveCamera(fov, aspect, near, far)
-    mainCamera.position.set(0, -20, 20)
-
-    const debugCamera = new PerspectiveCamera(75, halfWidth / height)
-    debugCamera.position.set(10, -40, -20)
-    // debugCamera.target.set(0, 0, 5)
+    const frustum = new Mesh(frustumLineGeo, redLineMat)   
 
     // Quad
     const quadGeometry = GeometryUtils.createPlane(2, 2)
@@ -180,7 +188,7 @@ async function main() {
         meshes: [box, grid]
     }
     const debugScene = {
-        meshes: [box, grid]
+        meshes: [box, frustum, grid]
     }
     const quadScene = {
         meshes: [quad]

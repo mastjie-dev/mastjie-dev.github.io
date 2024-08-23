@@ -359,8 +359,8 @@ class Matrix4 {
         el[5] = 2 / (top - bottom)
         el[10] = 1 / (near - far)
 
-        el[12] = -(right + left) / (left - right)
-        el[13] = -(top + bottom) / (bottom - top)
+        el[12] = (right + left) / (left - right)
+        el[13] = (top + bottom) / (bottom - top)
         el[14] = near / (near - far)
         el[15] = 1
 

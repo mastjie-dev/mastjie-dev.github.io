@@ -31,6 +31,27 @@ class Vector3 {
         return this
     }
 
+    add(a) {
+        this.x += a.x
+        this.y += a.y
+        this.z += a.z
+        return this
+    }
+
+    sub(a) {
+        this.x -= a.x
+        this.y -= a.y
+        this.z -= a.z
+        return this
+    }
+
+    addScalar(s) {
+        this.x += s
+        this.y += s
+        this.z += s
+        return this
+    }
+
     subScalar(s) {
         this.x -= s
         this.y -= s
@@ -42,6 +63,13 @@ class Vector3 {
         this.x *= s
         this.y *= s
         this.z *= s
+        return this
+    }
+
+    addVector(a, b) {
+        this.x = a.x + b.x
+        this.y = a.y + b.y
+        this.z = a.z + b.z
         return this
     }
 

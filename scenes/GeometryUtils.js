@@ -280,7 +280,7 @@ function createBoxLine(width = 1, height = 1, depth = 1) {
     return geometry
 }
 
-function createFrustumLine(angle, aspect, near, far) {
+function _createFrustumLine(angle, aspect, near, far) {
     const rad = angle / 2 * Math.PI / 180
 
     const t = Math.tan(rad)
@@ -303,6 +303,40 @@ function createFrustumLine(angle, aspect, near, far) {
          -fx,  fy, fz,
           fx,  fy, fz,
     ])
+    const uv = new Float32Array(8*3) // TODO: remov later
+    const index = new Uint16Array([
+        0, 1, 0, 2, 1, 3, 2, 3,
+        4, 5, 4, 6, 5, 7, 6, 7,
+        0, 4, 1, 5, 2, 6, 3, 7,
+    ])
+
+    const geometry = new BaseGeometry("frustum line")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", position, VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "uv", "attribute", uv, VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", index, VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
+function createFrustumLine(frustum) {
+
+    const position = new Float32Array([
+        ...frustum.nearLeftTop.toArray(),
+        ...frustum.nearRightTop.toArray(),
+        ...frustum.nearLeftBottom.toArray(),
+        ...frustum.nearRightBottom.toArray(),
+
+        ...frustum.farLeftTop.toArray(),
+        ...frustum.farRightTop.toArray(),
+        ...frustum.farLeftBottom.toArray(),
+        ...frustum.farRightBottom.toArray(),
+    ])
+
+    console.log(position)
+
     const uv = new Float32Array(8*3) // TODO: remov later
     const index = new Uint16Array([
         0, 1, 0, 2, 1, 3, 2, 3,
