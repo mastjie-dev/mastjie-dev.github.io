@@ -45,6 +45,12 @@ class Vector2 {
         return this
     }
 
+    divide(v2) {
+        this.x /= v2.x
+        this.y /= v2.y
+        return this
+    }
+
     addScalar(s) {
         this.x += s
         this.y += s
@@ -60,6 +66,12 @@ class Vector2 {
     multiplyScalar(s) {
         this.x *= s
         this.y *= s
+        return this
+    }
+
+    divideScalar(s) {
+        this.x /= s
+        this.y /= s
         return this
     }
 
