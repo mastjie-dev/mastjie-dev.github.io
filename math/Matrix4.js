@@ -141,15 +141,15 @@ class Matrix4 {
     }
 
     transpose() {
-        a = this.elements
+        const el = this.elements
         let t
 
-        t = a[1]; a[1] = a[4]; a[4] = t;
-        t = a[2]; a[2] = a[8]; a[8] = t;
-        t = a[3]; a[3] = a[12]; a[12] = t;
-        t = a[6]; a[6] = a[9]; a[9] = t;
-        t = a[7]; a[7] = a[13]; a[13] = t;
-        t = a[11]; a[11] = a[14]; a[14] = t;
+        t = el[1]; el[1] = el[4]; el[4] = t;
+        t = el[2]; el[2] = el[8]; el[8] = t;
+        t = el[3]; el[3] = el[12]; el[12] = t;
+        t = el[6]; el[6] = el[9]; el[9] = t;
+        t = el[7]; el[7] = el[13]; el[13] = t;
+        t = el[11]; el[11] = el[14]; el[14] = t;
 
         return this
     }
