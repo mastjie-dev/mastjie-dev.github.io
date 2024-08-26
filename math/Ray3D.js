@@ -83,4 +83,38 @@ class Ray3D {
 
         return true
     }
+
+    intersectSphere(sphere) {
+        const dir = new Vector3().copy(this.direction).normalize()
+        const radius2 = sphere.radius * sphere.radius
+
+        const L = new Vector3()
+        L.subVector(sphere.center, this.origin)
+
+        const tca = L.dot(dir)
+        const d2 = L.dot(L).subScalar(tca * tca)
+
+        if (d2 > radius2) return false
+
+        const thc = Math.sqrt(radius2 - d2)
+        let t0 = tca - thc
+        let t1 = tca + thc
+
+        if (t0 > t1) {
+            let tmp = t0
+            t0 = t1
+            t1 = tmp
+        }
+
+        if (t0 < 0) {
+            if (t1 < 0) {
+                return false
+            }
+            t0 = t1
+        }
+
+        return true
+    }
 }
+
+export default Ray3D
