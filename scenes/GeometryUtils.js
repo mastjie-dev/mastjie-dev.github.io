@@ -3,18 +3,18 @@ import VARS from "../cores/VARS"
 import Vector3 from "../math/Vector3"
 import BaseGeometry from "./BaseGeometry"
 
-function createPlaneInternal( // TODO: change width->horizontal, height=vertical
-    width = 1, height = 1, widthSegment = 1, heightSegment = 1, face = {}) {
+function createPlaneInternal(
+    horizontal = 1, vertical = 1, widthSegment = 1, heightSegment = 1, face = {}) {
     const position = []
     const normal = []
     const uv = []
     const index = []
 
-    const halfWidth = width / 2
-    const halfHeight = height / 2
+    const halfWidth = horizontal / 2
+    const halfHeight = vertical / 2
 
-    const widthStep = width / widthSegment
-    const heightStep = height / heightSegment
+    const widthStep = horizontal / widthSegment
+    const heightStep = vertical / heightSegment
 
     const widthVertices = widthSegment + 1
     const heightVertices = heightSegment + 1
@@ -92,7 +92,6 @@ function createPlaneInternal( // TODO: change width->horizontal, height=vertical
              *  v2   v3
              * 
              */
-
             const v1 = x + y * widthVertices
             const v2 = v1 + widthVertices
             const v3 = v2 + 1
@@ -110,12 +109,10 @@ function createPlaneInternal( // TODO: change width->horizontal, height=vertical
     }
 }
 
-function createPlane( // TODO: change width->horizontal, height=vertical
-    width = 1, height = 1, widthSegment = 1, heightSegment = 1, face = {}) {
-
+function createPlane(horizontal = 1, vertical = 1, widthSegment = 1, heightSegment = 1, face = {}) {
     const {
         position, normal, uv, index
-    } = createPlaneInternal(width, height, widthSegment, heightSegment)
+    } = createPlaneInternal(horizontal, vertical, widthSegment, heightSegment)
 
     const geometry = new BaseGeometry("plane geometry")
     geometry.addAttributes(new BufferCore(
@@ -134,66 +131,35 @@ function createBox(
     width = 1, height = 1, depth = 1, widthSegment = 1,
     heightSegment = 1, depthSegment = 1,
 ) {
+    const w = width
+    const h = height
+    const d = depth
+    const ws = widthSegment
+    const hs = heightSegment
+    const ds = depthSegment
+
+    const fr = createPlaneInternal(w, h, ws, hs, { dir: "front", off: -d / 2})
+    const bc = createPlaneInternal(w, h, ws, hs, { dir: "back", off: d / 2})
+    const up = createPlaneInternal(w, d, ws, ds, { dir: "up", off: -h / 2})
+    const dw = createPlaneInternal(w, d, ws, ds, { dir: "down", off: h / 2})
+    const lf = createPlaneInternal(d, h, ds, hs, { dir: "left", off: -w / 2})
+    const rg = createPlaneInternal(d, h, ds, hs, { dir: "right", off: -w / 2})
+
+    const faces = [fr, bc, up, dw, lf, rg]
     const position = []
     const normal = []
     const uv = []
     const index = []
-    let indexLength
+    let length = 0
 
-    const front = createPlaneInternal(width, height, widthSegment, heightSegment, {
-        dir: "front", off: -depth / 2
-    })
-    position.push(...front.position)
-    normal.push(...front.normal)
-    uv.push(...front.uv)
-    index.push(...front.index)
-    indexLength = position.length / 3
+    for (let f of faces) {
+        position.push(...f.position)
+        normal.push(...f.normal)
+        uv.push(...f.uv)
 
-    const back = createPlaneInternal(width, height, widthSegment, heightSegment, {
-        dir: "back", off: depth / 2
-    })
-    position.push(...back.position)
-    normal.push(...back.normal)
-    uv.push(...back.uv)
-    back.index.forEach(i => index.push(i + indexLength))
-    indexLength = position.length / 3
-
-    const up = createPlaneInternal(width, depth, widthSegment, depthSegment, {
-        dir: "up", off: -height / 2
-    })
-    position.push(...up.position)
-    normal.push(...up.normal)
-    uv.push(...up.uv)
-    up.index.forEach(i => index.push(i + indexLength))
-    indexLength = position.length / 3
-
-    const down = createPlaneInternal(width, depth, widthSegment, depthSegment, {
-        dir: "down", off: height / 2
-    })
-    position.push(...down.position)
-    normal.push(...down.normal)
-    uv.push(...down.uv)
-    down.index.forEach(i => index.push(i + indexLength))
-    indexLength = position.length / 3
-
-    const right = createPlaneInternal(depth, height, depthSegment, heightSegment, {
-        dir: "right", off: width / 2
-    })
-    position.push(...right.position)
-    normal.push(...right.normal)
-    uv.push(...right.uv)
-    right.index.forEach(i => index.push(i + indexLength))
-    indexLength = position.length / 3
-
-    const left = createPlaneInternal(depth, height, depthSegment, heightSegment, {
-        dir: "left", off: -width / 2
-    })
-    position.push(...left.position)
-    normal.push(...left.normal)
-    uv.push(...left.uv)
-    left.index.forEach(i => index.push(i + indexLength))
-    indexLength = position.length / 3
-
+        f.index.forEach(idx => index.push(idx + length))
+        length += f.position.length / 3
+    }
 
     const geometry = new BaseGeometry("box geometry")
     geometry.addAttributes(new BufferCore(
@@ -230,10 +196,6 @@ function createGrid(dimension = 100, gridSize = 1) {
     const geometry = new BaseGeometry("plane geometry")
     geometry.addAttributes(new BufferCore(
         "position", "attribute", new Float32Array(position), VARS.Buffer.Attribute32x3))
-    geometry.addAttributes(new BufferCore(
-        "normal", "attribute", new Float32Array(normal), VARS.Buffer.Attribute32x3))
-    geometry.addAttributes(new BufferCore(
-        "uv", "attribute", new Float32Array(uv), VARS.Buffer.Attribute32x2))
     geometry.addIndex(new BufferCore(
         "index", "index", new Uint16Array(index), VARS.Buffer.IndexUint16))
 
@@ -251,106 +213,62 @@ function createBoxLine(width = 1, height = 1, depth = 1) {
         -x, y, z, x, y, z,
     ])
     const index = new Uint16Array([
-        0, 1,
-        0, 2,
-        1, 3,
-        2, 3,
-
-        4, 5,
-        4, 6,
-        5, 7,
-        6, 7,
-
-        0, 4,
-        1, 5,
-        2, 6,
-        3, 7,
+        0, 1, 0, 2, 1, 3, 2, 3, // front
+        4, 5, 4, 6, 5, 7, 6, 7, // back
+        0, 4, 1, 5, 2, 6, 3, 7, // side
     ])
-
-    const uv = new Float32Array(8 * 3)
 
     const geometry = new BaseGeometry("box line geometry")
     geometry.addAttributes(new BufferCore(
         "position", "attribute", position, VARS.Buffer.Attribute32x3))
-    geometry.addAttributes(new BufferCore(
-        "uv", "attribute", uv, VARS.Buffer.Attribute32x2))
     geometry.addIndex(new BufferCore(
         "index", "index", index, VARS.Buffer.IndexUint16))
 
     return geometry
 }
 
-function _createFrustumLine(angle, aspect, near, far) {
-    const rad = angle / 2 * Math.PI / 180
+function createSphereCube(radius = 1, segment = 2) {
+    const sg = segment < 2 ? 2 : segment
+    const off = radius / 2
 
-    const t = Math.tan(rad)
-    const nx = t * aspect * near
-    const ny = t * near
-    const nz =  near
+    const fr = createPlaneInternal(radius, radius, sg, sg, { dir: "front", off: -off })
+    const bc = createPlaneInternal(radius, radius, sg, sg, { dir: "back", off: off })
+    const up = createPlaneInternal(radius, radius, sg, sg, { dir: "up", off: -off })
+    const dw = createPlaneInternal(radius, radius, sg, sg, { dir: "down", off: off })
+    const lf = createPlaneInternal(radius, radius, sg, sg, { dir: "left", off: -off })
+    const rg = createPlaneInternal(radius, radius, sg, sg, { dir: "right", off: off })
 
-    const fx = t * aspect * far
-    const fy = t * far
-    const fz = far
+    const faces = [fr, bc, up, dw, lf, rg]
+    const position = []
+    const normal = []
+    const uv = []
+    const index = []
+    let length = 0
 
-    const position = new Float32Array([
-        -nx, -ny, nz,
-         nx, -ny, nz,
-        -nx,  ny, nz,
-         nx,  ny, nz,
+    const v3 = new Vector3()
+    for (let f of faces) {
+        for (let i = 0; i < f.position.length; i += 3) {
+            v3.set(f.position[i], f.position[i + 1], f.position[i+2])
+            v3.normalize()
+            normal.push(v3.x, v3.y, v3.z)
+            v3.multiplyScalar(radius)
+            position.push(v3.x, v3.y, v3.z)
+        }
 
-         -fx, -fy, fz,
-          fx, -fy, fz,
-         -fx,  fy, fz,
-          fx,  fy, fz,
-    ])
-    const uv = new Float32Array(8*3) // TODO: remov later
-    const index = new Uint16Array([
-        0, 1, 0, 2, 1, 3, 2, 3,
-        4, 5, 4, 6, 5, 7, 6, 7,
-        0, 4, 1, 5, 2, 6, 3, 7,
-    ])
+        uv.push(...f.uv)
+        f.index.forEach(idx => index.push(idx + length))
+        length += f.position.length / 3
+    }
 
-    const geometry = new BaseGeometry("frustum line")
+    const geometry = new BaseGeometry("spherecube geometry")
     geometry.addAttributes(new BufferCore(
-        "position", "attribute", position, VARS.Buffer.Attribute32x3))
+        "position", "attribute", new Float32Array(position), VARS.Buffer.Attribute32x3))
     geometry.addAttributes(new BufferCore(
-        "uv", "attribute", uv, VARS.Buffer.Attribute32x2))
+        "normal", "attribute", new Float32Array(normal), VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "uv", "attribute", new Float32Array(uv), VARS.Buffer.Attribute32x2))
     geometry.addIndex(new BufferCore(
-        "index", "index", index, VARS.Buffer.IndexUint16))
-
-    return geometry
-}
-
-function createFrustumLine(frustum) {
-
-    const position = new Float32Array([
-        ...frustum.nearLeftTop.toArray(),
-        ...frustum.nearRightTop.toArray(),
-        ...frustum.nearLeftBottom.toArray(),
-        ...frustum.nearRightBottom.toArray(),
-
-        ...frustum.farLeftTop.toArray(),
-        ...frustum.farRightTop.toArray(),
-        ...frustum.farLeftBottom.toArray(),
-        ...frustum.farRightBottom.toArray(),
-    ])
-
-    console.log(position)
-
-    const uv = new Float32Array(8*3) // TODO: remov later
-    const index = new Uint16Array([
-        0, 1, 0, 2, 1, 3, 2, 3,
-        4, 5, 4, 6, 5, 7, 6, 7,
-        0, 4, 1, 5, 2, 6, 3, 7,
-    ])
-
-    const geometry = new BaseGeometry("frustum line")
-    geometry.addAttributes(new BufferCore(
-        "position", "attribute", position, VARS.Buffer.Attribute32x3))
-    geometry.addAttributes(new BufferCore(
-        "uv", "attribute", uv, VARS.Buffer.Attribute32x2))
-    geometry.addIndex(new BufferCore(
-        "index", "index", index, VARS.Buffer.IndexUint16))
+        "index", "index", new Uint16Array(index), VARS.Buffer.IndexUint16))
 
     return geometry
 }
@@ -360,7 +278,7 @@ const GeometryUtils = {
     createBox,
     createGrid,
     createBoxLine,
-    createFrustumLine,
+    createSphereCube,
 }
 
 export default GeometryUtils

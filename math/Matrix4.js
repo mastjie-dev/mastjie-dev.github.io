@@ -21,14 +21,15 @@ class Matrix4 {
         return this
     }
 
-    copy(m) {
+    copy(m1) {
         const el = this.elements
+        const m = m1.elements
 
         el[0]  = m[0];  el[1]  = m[1];  el[2]  = m[2];  el[3]  = m[3];
         el[4]  = m[4];  el[5]  = m[5];  el[6]  = m[6];  el[7]  = m[7];
         el[8]  = m[8];  el[9]  = m[9];  el[10] = m[10]; el[11] = m[11];
         el[12] = m[12]; el[13] = m[13]; el[14] = m[14]; el[15] = m[15];
-
+        
         return this
     }
 
@@ -292,10 +293,10 @@ class Matrix4 {
         f.subVector(position, target).normalize()
 
         const r = new Vector3()
-        r.cross(up, f).normalize()
+        r.crossVector(up, f).normalize()
 
         const u = new Vector3()
-        u.cross(f, r)
+        u.crossVector(f, r)
 
         el[0] = r.x; el[1] = u.x; el[2] = f.x; el[3] = 0;
         el[4] = r.y; el[5] = u.y; el[6] = f.y; el[7] = 0;
