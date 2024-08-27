@@ -292,21 +292,27 @@ class WebGPUInstance {
         )
     }
 
-    bindCameraResource(camera) {
-        if (!camera.GPUBuffer) {
-            camera.updateProjectionMatrix()
-            camera.updateViewMatrix()
-            this
-                .createAndWriteBuffer(camera.buffer)
-                .createBindGroupLayoutEntries(camera.buffer, camera.bindGroupLayout.entries)
-                .createBindGroupLayout(camera, camera.bindGroupLayout.entries)
-                .createBindGroupEntries(camera.buffer, camera.bindGroup.entries)
-                .createBindGroup(camera, camera.bindGroup.entries)
+    bindCamerasResource(cameras) {
+        const _cams = Array.isArray(cameras) ? cameras : [cameras]
+
+        for (let c of _cams) {
+            if (!c.GPUBuffer) {
+                c.updateProjectionMatrix()
+                c.updateViewMatrix()
+                this
+                    .createAndWriteBuffer(c.buffer)
+                    .createBindGroupLayoutEntries(c.buffer, c.bindGroupLayout.entries)
+                    .createBindGroupLayout(c, c.bindGroupLayout.entries)
+                    .createBindGroupEntries(c.buffer, c.bindGroup.entries)
+                    .createBindGroup(c, c.bindGroup.entries)
+            }
         }
     }
 
-    bindSceneResource(scene) {
-        for (let mesh of scene.meshes) {
+    bindMeshesResources(meshes) {
+        const _meshes = Array.isArray(meshes) ? meshes : [meshes]
+
+        for (let mesh of _meshes) {
             mesh.updateMatrixWorld()
             mesh.updateBuffer()
 
