@@ -334,6 +334,10 @@ class WebGPUInstance {
                     .createVertexBufferLayout(geometry)
             }
 
+            if (!material.shaderModule) {
+                material.shaderModule = this.createShaderModule(material.shader)
+            }
+
             const { buffers, textures, samplers } = material
 
             buffers.forEach(buffer => {

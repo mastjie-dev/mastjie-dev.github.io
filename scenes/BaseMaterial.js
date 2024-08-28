@@ -19,6 +19,9 @@ class BaseMaterial {
 
         this.bindGroup = new BindGroup()
         this.bindGroupLayout = new BindGroupLayout()
+
+        this.shader = null
+        this.shaderModule = null
     }
 
     addBuffer(bufferCore) {

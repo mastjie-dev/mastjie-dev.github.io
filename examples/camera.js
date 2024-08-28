@@ -9,8 +9,9 @@ import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
 import { OrthographicCamera, PerspectiveCamera } from '../scenes/Camera.js'
+import Matrix4 from '../math/Matrix4.js'
 
-const shaderCode = `
+const unlitSC = `
 struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) uv: vec2f,
@@ -27,7 +28,7 @@ struct Model {
 };
 
 @group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> debugCamera: Camera;
+@group(1) @binding(0) var<uniform> camera: Camera;
 @group(2) @binding(0) var<uniform> model: Model;
 
 @vertex fn main_vertex(
@@ -37,7 +38,7 @@ struct Model {
 ) -> VSOutput
 {
     var output: VSOutput;
-    output.position = debugCamera.projection * debugCamera.view * model.matrix * vec4f(position, 1.);
+    output.position = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
     output.uv = uv;
     return output;
 }
@@ -48,10 +49,48 @@ struct Model {
     -> @location(0) vec4f 
 {
     return vec4f(color, 1.);
-}
+}    
 `
 
-const quadShaderCode = `
+const lineSC = `
+struct VSOutput {
+    @builtin(position) position: vec4f,
+    @location(0) uv: vec2f,
+};
+
+struct Camera {
+    projection: mat4x4<f32>,
+    view: mat4x4<f32>,
+};
+
+struct Model {
+    matrix: mat4x4<f32>,
+    normal: mat4x4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> color: vec3f;
+@group(1) @binding(0) var<uniform> camera: Camera;
+@group(2) @binding(0) var<uniform> model: Model;
+
+@vertex fn main_vertex(
+    @location(0) position: vec3f,
+) -> VSOutput
+{
+    var output: VSOutput;
+    output.position = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
+    return output;
+}
+
+@fragment fn main_fragment(
+    input: VSOutput,
+)
+    -> @location(0) vec4f 
+{
+    return vec4f(color, 1.);
+}    
+`
+
+const quadSC = `
 struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) uv: vec2f,
@@ -99,7 +138,6 @@ struct Model {
 
     let split = step(mid, 0);
     let color = split * leftView + (1.-split) * rightView;
-    // let color = textureSample(left, mapSampler, input.uv).rgb;;
     
     return vec4f(color, 1.);
 }
@@ -131,43 +169,44 @@ async function main() {
 
     const fov = 50
     const aspect = halfWidth / height
-    const near = .1
-    const far = 30
+    const near = 5
+    const far = 50
 
     const mainCamera = new PerspectiveCamera(fov, aspect, near, far)
-    mainCamera.position.set(0, 0, -20)
-    // mainCamera.target.set(-8, 0, 0)
+    mainCamera.position.set(0, -20, -20)
+    // mainCamera.target.set(0, 2, 0)
 
     const d = 10
     const debugCamera = new PerspectiveCamera(75, halfWidth / height)
-    debugCamera.position.set(0, -30, -1)
+    debugCamera.position.set(100, 0, 0)
     // debugCamera.target.set(0, 0, 5)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
     const gridGeo = GeometryUtils.createGrid(100, 2)
+    const boxLineGeo = GeometryUtils.createBoxLine(2, 2, 2)
 
     const blue = new BufferCore("blue", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform)
     const white = new BufferCore("white", "uniform", new Float32Array([1, 1, 1]), VARS.Buffer.Uniform)
     const red = new BufferCore("white", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform)
 
-    const blueMat = new BaseMaterial()
+    const blueMat = new BaseMaterial("blue")
+    blueMat.shader = unlitSC
     blueMat.addBuffer(blue)
 
     const whiteLineMat = new BaseMaterial()
+    whiteLineMat.shader = lineSC
     whiteLineMat.topology = "line-list"
     whiteLineMat.addBuffer(white)
 
-    const redLineMat = new BaseMaterial()
-    redLineMat.topology = "line-list"
-    redLineMat.addBuffer(red)
-
     const box = new Mesh(boxGeo, blueMat)
     const grid = new Mesh(gridGeo, whiteLineMat)
+    const frustum = new Mesh(boxLineGeo, whiteLineMat)
 
     // Quad
     const quadGeometry = GeometryUtils.createPlane(2, 2)
 
     const quadMaterial = new BaseMaterial("quad material")
+    quadMaterial.shader = quadSC
     quadMaterial.depthWriteEnabled = false
     quadMaterial.cullMode = "none"
     quadMaterial.addTexture(left)
@@ -178,15 +217,27 @@ async function main() {
     const quadCamera = new OrthographicCamera(-1, 1, 1, -1, .1, 10)
     quadCamera.position.z = 1
 
-    const meshes = [box, grid, quad]
+    const meshes = [box, grid, quad, frustum]
     const cameras = [mainCamera, debugCamera, quadCamera]
     instance.bindMeshesResources(meshes)
     instance.bindCamerasResource(cameras)
 
-    const mainSM = instance.createShaderModule(shaderCode)
-    const quadSM = instance.createShaderModule(quadShaderCode)
+    const pm = new Matrix4()
+    pm.copy(mainCamera.projectionMatrix)
 
-    const leftMeshes = [box]
+    const vm = new Matrix4()
+    vm.copy(mainCamera.viewMatrix)
+
+    pm.multiply(vm)
+    pm.inverse()
+
+    frustum.localMatrix.copy(pm)
+    frustum.updateWorldMatrix()
+    frustum.updateBuffer()
+    instance.writeBuffer(frustum.buffer)
+    // console.log(frustum.localMatrix.elements)
+
+    const leftMeshes = [box, grid]
     const leftROs = leftMeshes.map(mesh => {
         const renderPL = instance.createPipelineLayout(
             mesh.material.bindGroupLayout.GPUBindGroupLayout,
@@ -197,8 +248,8 @@ async function main() {
         const desc = PipelineDescriptorBuilder
             .start()
             .layout(renderPL)
-            .vertex(mainSM, mesh.geometry.vertexBufferLayout)
-            .fragment(mainSM, canvasFormat)
+            .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
+            .fragment(mesh.material.shaderModule, canvasFormat)
             .primitive(mesh.material.cullMode, mesh.material.topology)
             .depthStencil(
                 mesh.material.depthWriteEnabled,
@@ -210,7 +261,7 @@ async function main() {
         return instance.createRenderPipeline(mesh, desc)
     })
 
-    const rightMeshes = [box]
+    const rightMeshes = [frustum, box]
     const rightROs = rightMeshes.map(mesh => {
         const renderPL = instance.createPipelineLayout(
             mesh.material.bindGroupLayout.GPUBindGroupLayout,
@@ -221,8 +272,8 @@ async function main() {
         const desc = PipelineDescriptorBuilder
             .start()
             .layout(renderPL)
-            .vertex(mainSM, mesh.geometry.vertexBufferLayout)
-            .fragment(mainSM, canvasFormat)
+            .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
+            .fragment(mesh.material.shaderModule, canvasFormat)
             .primitive(mesh.material.cullMode, mesh.material.topology)
             .depthStencil(
                 mesh.material.depthWriteEnabled,
@@ -245,8 +296,8 @@ async function main() {
         const desc = PipelineDescriptorBuilder
             .start()
             .layout(pl)
-            .vertex(quadSM, quad.geometry.vertexBufferLayout)
-            .fragment(quadSM, canvasFormat)
+            .vertex(quad.material.shaderModule, quad.geometry.vertexBufferLayout)
+            .fragment(quad.material.shaderModule, canvasFormat)
             .end()
 
         quadRO = instance.createRenderPipeline(quad, desc)
