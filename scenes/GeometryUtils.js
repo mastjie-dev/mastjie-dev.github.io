@@ -143,7 +143,7 @@ function createBox(
     const up = createPlaneInternal(w, d, ws, ds, { dir: "up", off: -h / 2})
     const dw = createPlaneInternal(w, d, ws, ds, { dir: "down", off: h / 2})
     const lf = createPlaneInternal(d, h, ds, hs, { dir: "left", off: -w / 2})
-    const rg = createPlaneInternal(d, h, ds, hs, { dir: "right", off: -w / 2})
+    const rg = createPlaneInternal(d, h, ds, hs, { dir: "right", off: w / 2})
 
     const faces = [fr, bc, up, dw, lf, rg]
     const position = []

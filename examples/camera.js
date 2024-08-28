@@ -178,11 +178,11 @@ async function main() {
 
     const d = 10
     const debugCamera = new PerspectiveCamera(75, halfWidth / height)
-    debugCamera.position.set(100, 0, 0)
+    debugCamera.position.set(50, -50, 0)
     // debugCamera.target.set(0, 0, 5)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
-    const gridGeo = GeometryUtils.createGrid(100, 2)
+    const gridGeo = GeometryUtils.createGrid(100, 5)
     const boxLineGeo = GeometryUtils.createBoxLine(2, 2, 2)
 
     const blue = new BufferCore("blue", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform)
@@ -198,9 +198,14 @@ async function main() {
     whiteLineMat.topology = "line-list"
     whiteLineMat.addBuffer(white)
 
+    const redLineMat = new BaseMaterial()
+    redLineMat.shader = lineSC
+    redLineMat.topology = "line-list"
+    redLineMat.addBuffer(red)
+
     const box = new Mesh(boxGeo, blueMat)
     const grid = new Mesh(gridGeo, whiteLineMat)
-    const frustum = new Mesh(boxLineGeo, whiteLineMat)
+    const frustum = new Mesh(boxLineGeo, redLineMat)
 
     // Quad
     const quadGeometry = GeometryUtils.createPlane(2, 2)
@@ -235,7 +240,6 @@ async function main() {
     frustum.updateWorldMatrix()
     frustum.updateBuffer()
     instance.writeBuffer(frustum.buffer)
-    // console.log(frustum.localMatrix.elements)
 
     const leftMeshes = [box, grid]
     const leftROs = leftMeshes.map(mesh => {
@@ -261,7 +265,7 @@ async function main() {
         return instance.createRenderPipeline(mesh, desc)
     })
 
-    const rightMeshes = [frustum, box]
+    const rightMeshes = [frustum, box, grid]
     const rightROs = rightMeshes.map(mesh => {
         const renderPL = instance.createPipelineLayout(
             mesh.material.bindGroupLayout.GPUBindGroupLayout,
@@ -392,6 +396,43 @@ async function main() {
         // requestAnimationFrame(render)
     }
     render()
+
+    const updateCamera = () => {
+        mainCamera.updateViewMatrix()
+        vm.copy(mainCamera.viewMatrix)
+        pm.copy(mainCamera.projectionMatrix).multiply(vm).inverse()
+        frustum.localMatrix.copy(pm)
+        frustum.updateWorldMatrix()
+        frustum.updateBuffer()
+
+        instance.writeBuffer(mainCamera.buffer).writeBuffer(frustum.buffer)
+    }
+
+    document.body.addEventListener("keydown", e => {
+        switch (e.key) {
+            case "w":
+                mainCamera.position.y -= 1
+                break
+            case "s":
+                mainCamera.position.y += 1
+                break
+            case "d":
+                mainCamera.position.x += 1
+                break
+            case "a":
+                mainCamera.position.x -= 1
+                break
+            case "q":
+                mainCamera.position.z += 1
+                break
+            case "e":
+                mainCamera.position.z -= 1
+                break             
+        }
+
+        updateCamera()
+        render()
+    })
 
     document.body.appendChild(canvas)
 }
