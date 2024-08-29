@@ -11,6 +11,8 @@ import GeometryUtils from '../scenes/GeometryUtils.js'
 import { OrthographicCamera, PerspectiveCamera } from '../scenes/Camera.js'
 import Matrix4 from '../math/Matrix4.js'
 
+import gui from '../misc/gui.js'
+
 const unlitSC = `
 struct VSOutput {
     @builtin(position) position: vec4f,
@@ -169,7 +171,7 @@ async function main() {
 
     const fov = 50
     const aspect = halfWidth / height
-    const near = 5
+    const near = 0.1
     const far = 50
 
     const mainCamera = new PerspectiveCamera(fov, aspect, near, far)
@@ -399,40 +401,101 @@ async function main() {
 
     const updateCamera = () => {
         mainCamera.updateViewMatrix()
+        mainCamera.updateProjectionMatrix()
+
         vm.copy(mainCamera.viewMatrix)
-        pm.copy(mainCamera.projectionMatrix).multiply(vm).inverse()
+        pm.copy(mainCamera.projectionMatrix)
+        pm.multiply(vm).inverse()
+
         frustum.localMatrix.copy(pm)
         frustum.updateWorldMatrix()
         frustum.updateBuffer()
 
         instance.writeBuffer(mainCamera.buffer).writeBuffer(frustum.buffer)
+        render()
     }
 
-    document.body.addEventListener("keydown", e => {
-        switch (e.key) {
-            case "w":
-                mainCamera.position.y -= 1
-                break
-            case "s":
-                mainCamera.position.y += 1
-                break
-            case "d":
-                mainCamera.position.x += 1
-                break
-            case "a":
-                mainCamera.position.x -= 1
-                break
-            case "q":
-                mainCamera.position.z += 1
-                break
-            case "e":
-                mainCamera.position.z -= 1
-                break             
+    const guiPars = [
+        {
+            label: "position",
+            fields: [
+                {
+                    label: "pos x",
+                    type: "range",
+                    value: 0,
+                    min: -20,
+                    max: 20,
+                    step: 1,
+                    func(e) {
+                        mainCamera.position.x = e
+                        updateCamera()
+                    }
+                },
+                {
+                    label: "pos y",
+                    type: "range",
+                    value: -20,
+                    min: -30,
+                    max: 30,
+                    step: 1,
+                    func(e) {
+                        mainCamera.position.y = e
+                        updateCamera()
+                    }
+                },
+                {
+                    label: "pos z",
+                    type: "range",
+                    value: -20,
+                    min: -20,
+                    max: 20,
+                    step: 1,
+                    func(e) {
+                        mainCamera.position.z = e
+                        updateCamera()
+                    }
+                },
+                {
+                    label: "near",
+                    type: "range",
+                    value: .1,
+                    min: 0.1,
+                    max: 99,
+                    step: 1,
+                    func(e) {
+                        mainCamera.near = e
+                        updateCamera()
+                    }
+                },
+                {
+                    label: "far",
+                    type: "range",
+                    value: 50,
+                    min: 1,
+                    max: 100,
+                    step: 1,
+                    func(e) {
+                        mainCamera.far = e
+                        updateCamera()
+                    }
+                },
+                {
+                    label: "fov",
+                    type: "range",
+                    value: .8726,
+                    min: .1,
+                    max: 2,
+                    step: .1,
+                    func(e) {
+                        mainCamera.fov = -e
+                        updateCamera()
+                    }
+                },
+            ]
         }
+    ]
 
-        updateCamera()
-        render()
-    })
+    gui(guiPars)
 
     document.body.appendChild(canvas)
 }
