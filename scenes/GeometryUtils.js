@@ -1,7 +1,7 @@
-import BufferCore from "../cores/BufferCore"
-import VARS from "../cores/VARS"
-import Vector3 from "../math/Vector3"
-import BaseGeometry from "./BaseGeometry"
+import BufferCore from "../cores/BufferCore.js"
+import VARS from "../cores/VARS.js"
+import Vector3 from "../math/Vector3.js"
+import BaseGeometry from "./BaseGeometry.js"
 
 function createPlaneInternal(
     horizontal = 1, vertical = 1, widthSegment = 1, heightSegment = 1, face = {}) {
