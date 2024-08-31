@@ -138,7 +138,7 @@ struct Model {
     let leftView = textureSample(left, mapSampler, leftUV).rgb;
     let rightView = textureSample(right, mapSampler, rightUV).rgb;
 
-    let split = step(mid, 0);
+    let split = step(0, mid);
     let color = split * leftView + (1.-split) * rightView;
     
     return vec4f(color, 1.);
@@ -487,7 +487,7 @@ async function main() {
                     max: 2,
                     step: .1,
                     func(e) {
-                        mainCamera.fov = -e
+                        mainCamera.fov = e
                         updateCamera()
                     }
                 },
