@@ -32,7 +32,7 @@ class PerspectiveCamera extends Camera {
     constructor(fov = 50, aspect = 1, near = .1, far = 1000) {
         super("Perspective Camera")
 
-        this.fov = -fov * Math.PI / 180
+        this.fov = fov * Math.PI / 180
         this.aspect = aspect
         this.near = near
         this.far = far

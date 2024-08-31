@@ -311,7 +311,7 @@ class Matrix4 {
     }
 
     perspective(fov, aspect, near, far) {
-        const f = Math.tan(Math.PI * .5 - .5 * fov)
+        const f = Math.tan(Math.PI * .5 - .5 * -fov)
 
         this.elements[0] = f / aspect
         this.elements[5] = f
@@ -323,16 +323,25 @@ class Matrix4 {
     }
 
     orthographic(left, right, bottom, top, near, far) {
-        // TODO: bug??
         const el = this.elements
 
-        el[0] = 2 / (right - left)
-        el[5] = 2 / (top - bottom)
-        el[10] = 1 / (near - far)
+        // wgpu-matrix calculation
+        // el[0] = 2 / (right - left)
+        // el[5] = 2 / (top - bottom)
+        // el[10] = 1 / (near - far)
 
-        el[12] = (right + left) / (left - right)
+        // el[12] = (right + left) / (left - right)
+        // el[13] = (top + bottom) / (bottom - top)
+        // el[14] = near / (near - far)
+        // el[15] = 1
+
+        el[0]  = 2 / (left - right)
+        el[5]  = 2 / (top - bottom)
+        el[10] = -1 / (far - near)
+        
+        el[12] = (left + right) / (right - left)
         el[13] = (top + bottom) / (bottom - top)
-        el[14] = near / (near - far)
+        el[14] = -near / (far - near)
         el[15] = 1
 
         return this

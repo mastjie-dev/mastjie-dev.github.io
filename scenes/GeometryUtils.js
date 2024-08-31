@@ -1,5 +1,6 @@
 import BufferCore from "../cores/BufferCore.js"
 import VARS from "../cores/VARS.js"
+import Vector2 from "../math/Vector2.js"
 import Vector3 from "../math/Vector3.js"
 import BaseGeometry from "./BaseGeometry.js"
 
@@ -174,59 +175,6 @@ function createBox(
     return geometry
 }
 
-function createGrid(dimension = 100, gridSize = 1) {
-    const segment = dimension / gridSize
-    const vertices = segment + 1
-    const {
-        position, normal, uv
-    } = createPlaneInternal(dimension, dimension, segment, segment, { dir: "up" })
-
-    const index = []
-    for (let y = 0; y < segment; y++) {
-        for (let x = 0; x < segment; x++) {
-            const v1 = x + y * vertices
-            const v2 = v1 + vertices
-            const v3 = v2 + 1
-            const v4 = v1 + 1
-
-            index.push(v1, v2, v2, v3, v3, v4, v4, v1)
-        }
-    }
-
-    const geometry = new BaseGeometry("plane geometry")
-    geometry.addAttributes(new BufferCore(
-        "position", "attribute", new Float32Array(position), VARS.Buffer.Attribute32x3))
-    geometry.addIndex(new BufferCore(
-        "index", "index", new Uint16Array(index), VARS.Buffer.IndexUint16))
-
-    return geometry
-}
-
-function createBoxLine(width = 1, height = 1, depth = 1) {
-    const x = .5 * width
-    const y = .5 * height
-    const z = .5 * depth
-    const position = new Float32Array([
-        -x, -y, -z, x, -y, -z,
-        -x, y, -z, x, y, -z,
-        -x, -y, z, x, -y, z,
-        -x, y, z, x, y, z,
-    ])
-    const index = new Uint16Array([
-        0, 1, 0, 2, 1, 3, 2, 3, // front
-        4, 5, 4, 6, 5, 7, 6, 7, // back
-        0, 4, 1, 5, 2, 6, 3, 7, // side
-    ])
-
-    const geometry = new BaseGeometry("box line geometry")
-    geometry.addAttributes(new BufferCore(
-        "position", "attribute", position, VARS.Buffer.Attribute32x3))
-    geometry.addIndex(new BufferCore(
-        "index", "index", index, VARS.Buffer.IndexUint16))
-
-    return geometry
-}
-
 function createSphereCube(radius = 1, segment = 2) {
     const sg = segment < 2 ? 2 : segment
     const off = radius / 2
@@ -273,12 +221,118 @@ function createSphereCube(radius = 1, segment = 2) {
     return geometry
 }
 
+function createGrid(dimension = 100, gridSize = 1) {
+    const segment = dimension / gridSize
+    const vertices = segment + 1
+    const {
+        position, normal, uv
+    } = createPlaneInternal(dimension, dimension, segment, segment, { dir: "up" })
+
+    const index = []
+    for (let y = 0; y < segment; y++) {
+        for (let x = 0; x < segment; x++) {
+            const v1 = x + y * vertices
+            const v2 = v1 + vertices
+            const v3 = v2 + 1
+            const v4 = v1 + 1
+
+            index.push(v1, v2, v2, v3, v3, v4, v4, v1)
+        }
+    }
+
+    const geometry = new BaseGeometry("plane geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", new Float32Array(position), VARS.Buffer.Attribute32x3))
+    geometry.addIndex(new BufferCore(
+        "index", "index", new Uint16Array(index), VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
+function createBoxLine(width = 1, height = 1, depth = 1) {
+    const x = .5 * width
+    const y = .5 * height
+    const z = .5 * depth
+    const position = new Float32Array([
+        -x, -y, -z,  x, -y, -z,
+        -x,  y, -z,  x,  y, -z,
+        -x, -y,  z,  x, -y,  z,
+        -x,  y,  z,  x,  y,  z,
+    ])
+    const index = new Uint16Array([
+        0, 1, 0, 2, 1, 3, 2, 3, // front
+        4, 5, 4, 6, 5, 7, 6, 7, // back
+        0, 4, 1, 5, 2, 6, 3, 7, // side
+    ])
+
+    const geometry = new BaseGeometry("box line geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", position, VARS.Buffer.Attribute32x3))
+    geometry.addIndex(new BufferCore(
+        "index", "index", index, VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
+function createBox2DLine(width = 1, height = 1) {
+    const x = .5 * width
+    const y = .5 * height
+
+    const position = new Float32Array([
+        -x, -y,  x, -y,
+        -x,  y,  x, y
+    ])
+    const index = new Uint16Array([0, 1, 0, 2, 1, 3, 2, 3])
+
+    const geometry = new BaseGeometry("box2d line geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", position, VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", index, VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
+function createCircleLine(radius) {
+    const pos = []
+    const idx = []
+    const v2 = new Vector2(0, -radius)
+    const c = Math.cos(0.174533)
+    const s = Math.sin(0.174533)
+
+    for (let i = 0; i < 36; i++) {
+        pos.push(v2.x, v2.y)
+        idx.push(i, i + 1)
+
+        if (i === 35) {
+            idx[idx.length - 1] = 0
+        }
+
+        let _x = v2.x*c - v2.y*s
+        let _y = v2.x*s + v2.y*c
+        v2.set(_x, _y)
+    }
+
+    const position = new Float32Array(pos)
+    const index = new Uint16Array(idx)
+
+    const geometry = new BaseGeometry("box2d line geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", position, VARS.Buffer.Attribute32x2))
+    geometry.addIndex(new BufferCore(
+        "index", "index", index, VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
 const GeometryUtils = {
     createPlane,
     createBox,
     createGrid,
     createBoxLine,
     createSphereCube,
+    createBox2DLine,
+    createCircleLine,
 }
 
 export default GeometryUtils
