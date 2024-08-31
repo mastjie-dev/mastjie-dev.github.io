@@ -337,11 +337,11 @@ class Matrix4 {
 
         el[0]  = 2 / (left - right)
         el[5]  = 2 / (top - bottom)
-        el[10] = -1 / (far - near)
+        el[10] = 1 / (near - far)
         
         el[12] = (left + right) / (right - left)
         el[13] = (top + bottom) / (bottom - top)
-        el[14] = -near / (far - near)
+        el[14] = near / (near - far)
         el[15] = 1
 
         return this
