@@ -24,6 +24,10 @@ class TextureCore {
     setGPUTexture(texture) {
         this.GPUTexture = texture
     }
+
+    destroy() {
+        this.GPUTexture.destroy()
+    }
 }
 
 class TargetTexture extends TextureCore {
