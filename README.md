@@ -3,15 +3,13 @@
 Building small rendering library to learn WebGPU and graphics programming
 
 ## Next
- - Frustum from projection matrix
- - Visualize camera
  - Point rendering
- - Input events
+ - cube texture
  - Visual & text debugger
  - World axis viewer
+ - shadow mapping
 
 ## Bugs
- - Orthographic camera
  - Rewrite old examples
 
 ## Test pending
