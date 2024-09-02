@@ -139,12 +139,12 @@ function createBox(
     const hs = heightSegment
     const ds = depthSegment
 
-    const fr = createPlaneInternal(w, h, ws, hs, { dir: "front", off: -d / 2})
-    const bc = createPlaneInternal(w, h, ws, hs, { dir: "back", off: d / 2})
-    const up = createPlaneInternal(w, d, ws, ds, { dir: "up", off: -h / 2})
-    const dw = createPlaneInternal(w, d, ws, ds, { dir: "down", off: h / 2})
-    const lf = createPlaneInternal(d, h, ds, hs, { dir: "left", off: -w / 2})
-    const rg = createPlaneInternal(d, h, ds, hs, { dir: "right", off: w / 2})
+    const fr = createPlaneInternal(w, h, ws, hs, { dir: "front", off: -d / 2 })
+    const bc = createPlaneInternal(w, h, ws, hs, { dir: "back", off: d / 2 })
+    const up = createPlaneInternal(w, d, ws, ds, { dir: "up", off: -h / 2 })
+    const dw = createPlaneInternal(w, d, ws, ds, { dir: "down", off: h / 2 })
+    const lf = createPlaneInternal(d, h, ds, hs, { dir: "left", off: -w / 2 })
+    const rg = createPlaneInternal(d, h, ds, hs, { dir: "right", off: w / 2 })
 
     const faces = [fr, bc, up, dw, lf, rg]
     const position = []
@@ -196,7 +196,7 @@ function createSphereCube(radius = 1, segment = 2) {
     const v3 = new Vector3()
     for (let f of faces) {
         for (let i = 0; i < f.position.length; i += 3) {
-            v3.set(f.position[i], f.position[i + 1], f.position[i+2])
+            v3.set(f.position[i], f.position[i + 1], f.position[i + 2])
             v3.normalize()
             normal.push(v3.x, v3.y, v3.z)
             v3.multiplyScalar(radius)
@@ -254,10 +254,10 @@ function createBoxLine(width = 1, height = 1, depth = 1) {
     const y = .5 * height
     const z = .5 * depth
     const position = new Float32Array([
-        -x, -y, -z,  x, -y, -z,
-        -x,  y, -z,  x,  y, -z,
-        -x, -y,  z,  x, -y,  z,
-        -x,  y,  z,  x,  y,  z,
+        -x, -y, -z, x, -y, -z,
+        -x, y, -z, x, y, -z,
+        -x, -y, z, x, -y, z,
+        -x, y, z, x, y, z,
     ])
     const index = new Uint16Array([
         0, 1, 0, 2, 1, 3, 2, 3, // front
@@ -279,8 +279,8 @@ function createBox2DLine(width = 1, height = 1) {
     const y = .5 * height
 
     const position = new Float32Array([
-        -x, -y,  x, -y,
-        -x,  y,  x, y
+        -x, -y, x, -y,
+        -x, y, x, y
     ])
     const index = new Uint16Array([0, 1, 0, 2, 1, 3, 2, 3])
 
@@ -308,8 +308,8 @@ function createCircleLine(radius) {
             idx[idx.length - 1] = 0
         }
 
-        let _x = v2.x*c - v2.y*s
-        let _y = v2.x*s + v2.y*c
+        let _x = v2.x * c - v2.y * s
+        let _y = v2.x * s + v2.y * c
         v2.set(_x, _y)
     }
 
@@ -325,6 +325,30 @@ function createCircleLine(radius) {
     return geometry
 }
 
+function createAxis(scale = 1) {
+    const position = new Float32Array([
+        0, 0, 0, 0, 0, -scale,
+        0, 0, 0, 0, -scale, 0,
+        0, 0, 0, scale, 0, 0,
+    ])
+    const color = new Float32Array([
+        0, 0, 1, 0, 0, 1,
+        0, 1, 0, 0, 1, 0,
+        1, 0, 0, 1, 0, 0
+    ])
+    const index = new Uint16Array([0, 1, 2, 3, 4, 5])
+
+    const geometry = new BaseGeometry("axis geometry")
+    geometry.addAttributes(new BufferCore(
+        "position", "attribute", position, VARS.Buffer.Attribute32x3))
+    geometry.addAttributes(new BufferCore(
+        "color", "attribute", color, VARS.Buffer.Attribute32x3))
+    geometry.addIndex(new BufferCore(
+        "index", "index", index, VARS.Buffer.IndexUint16))
+
+    return geometry
+}
+
 const GeometryUtils = {
     createPlane,
     createBox,
@@ -333,6 +357,7 @@ const GeometryUtils = {
     createSphereCube,
     createBox2DLine,
     createCircleLine,
+    createAxis,
 }
 
 export default GeometryUtils
