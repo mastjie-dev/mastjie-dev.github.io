@@ -222,7 +222,7 @@ function createSphereCube(radius = 1, segment = 2) {
 }
 
 function createGrid(dimension = 100, gridSize = 1) {
-    const segment = dimension / gridSize
+    const segment = Math.floor(dimension / gridSize)
     const vertices = segment + 1
     const {
         position, normal, uv
