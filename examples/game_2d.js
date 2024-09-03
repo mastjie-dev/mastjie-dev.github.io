@@ -6,8 +6,13 @@ import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores
 
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
+import InstanceMesh from '../scenes/InstanceMesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
 import { OrthographicCamera } from '../scenes/Camera.js'
+import NodeCore from '../scenes/NodeCore.js'
+import Vector3 from '../math/Vector3.js'
+import BoundingCircle from '../math/BoundingCircle.js'
+import BoundingBox2D from '../math/BoundingBox2D.js'
 
 const lineSC = `
 struct VSOutput {
@@ -34,7 +39,7 @@ struct Model {
 ) -> VSOutput
 {
     var output: VSOutput;
-    output.position = camera.projection * camera.view *model.matrix * vec4f(position, 0., 1.);
+    output.position = camera.projection * camera.view * model.matrix * vec4f(position, 0., 1.);
     return output;
 }
 
@@ -47,7 +52,7 @@ struct Model {
 }
 `
 
-const quadShaderCode = `
+const instancingSC = `
 struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) uv: vec2f,
@@ -59,25 +64,21 @@ struct Camera {
 };
 
 struct Model {
-    matrix: mat4x4<f32>,
-    normal: mat4x4<f32>,
+    matrix: array<mat4x4f, 10>,
 };
 
-@group(0) @binding(0) var left: texture_2d<f32>;
-@group(0) @binding(1) var right: texture_2d<f32>;
-@group(0) @binding(2) var mapSampler: sampler;
-@group(1) @binding(0) var<uniform> debugCamera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
+@group(0) @binding(0) var<uniform> color: vec3f;
+@group(1) @binding(0) var<uniform> model: Model;
+@group(2) @binding(0) var<uniform> camera: Camera;
 
 @vertex fn main_vertex(
-    @location(0) position: vec3f,
-    @location(1) normal: vec3f,
-    @location(2) uv: vec2f,
+    @builtin(instance_index) id: u32,
+    @location(0) position: vec2f,
 ) -> VSOutput
 {
     var output: VSOutput;
-    output.position = debugCamera.projection * debugCamera.view * model.matrix * vec4f(position, 1.);
-    output.uv = uv;
+    let transform = model.matrix[id] * vec4f(position, 0., 1.);
+    output.position = camera.projection * camera.view * transform;
     return output;
 }
 
@@ -86,17 +87,6 @@ struct Model {
 )
     -> @location(0) vec4f 
 {
-    let mid = input.uv.x - .5;
-    let leftUV = vec2f(mid*2., input.uv.y);
-    let rightUV = vec2f((mid-.5) * 2., input.uv.y);
-
-    let leftView = textureSample(left, mapSampler, leftUV).rgb;
-    let rightView = textureSample(right, mapSampler, rightUV).rgb;
-
-    let split = step(mid, 0);
-    let color = split * leftView + (1.-split) * rightView;
-    // let color = textureSample(left, mapSampler, input.uv).rgb;;
-    
     return vec4f(color, 1.);
 }
 `
@@ -127,7 +117,7 @@ async function main() {
     const red = new BufferCore("white", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform)
 
     const whiteLineMat = new BaseMaterial()
-    whiteLineMat.shader = lineSC
+    whiteLineMat.shader = instancingSC
     whiteLineMat.cullMode = "none"
     whiteLineMat.topology = "line-list"
     whiteLineMat.addBuffer(white)
@@ -138,17 +128,15 @@ async function main() {
     redLineMat.topology = "line-list"
     redLineMat.addBuffer(red)
 
-    const box = new Mesh(box2dLine, whiteLineMat)
-    const circle = new Mesh(circleLine, whiteLineMat)
-    const meshes = [box, circle]
+    const orthoUnit = 30
+    const aspect = width / height
+    const camera = new OrthographicCamera(-orthoUnit*aspect, orthoUnit*aspect, orthoUnit, -orthoUnit, .1, 100)
+    camera.position.set(0, 0, -1)
 
-    box.position.y = -5
-    circle.position.x = 8
-
-    const d = 10
-    const a = width / height
-    const camera = new OrthographicCamera(-d*a, d*a, d, -d, .1, 100)
-    camera.position.z = -1
+    const player = new Mesh(circleLine, redLineMat)
+    player.position.x = -5
+    player.scale.set(2, 2, 0)
+    const meshes = [player]
 
     instance.bindMeshesResources(meshes)
     instance.bindCamerasResource(camera)
@@ -178,7 +166,22 @@ async function main() {
 
     rpDesc.colorAttachments[0].clearColor[1] = 1
         
-    const render = () => {
+    let gravity = 20
+    let acceleration = 0
+    const updatePlayer = (dt) => {
+        if (acceleration < 0) {
+            acceleration += .5
+        }
+        player.position.y += (gravity + acceleration) * dt
+        player.updateMatrixWorld()
+        player.updateBuffer()
+        instance.writeBuffer(player.buffer)
+    }
+
+    const render = (delta) => {
+        const dt = 1 / 60
+        updatePlayer(dt)
+
         const encoder = instance.createCommandEncoder()
 
         rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
@@ -194,16 +197,22 @@ async function main() {
                 ro.mesh.geometry.index.GPUBuffer,
                 ro.mesh.geometry.index.format
             )
-            pass.drawIndexed(ro.mesh.geometry.index.length)
+            pass.drawIndexed(ro.mesh.geometry.index.length, ro.mesh.count)
         }
         pass.end()
 
         instance.submitEncoder([encoder.finish()])
         // requestAnimationFrame(render)
     }
-    render()
+    requestAnimationFrame(render)
 
     document.body.appendChild(canvas)
+
+    document.body.addEventListener("keydown", e => {
+        if (e.code === "Space") {
+            acceleration = -40
+        }
+    })
 }
 
 main()
