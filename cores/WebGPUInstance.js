@@ -313,8 +313,10 @@ class WebGPUInstance {
         const _meshes = Array.isArray(meshes) ? meshes : [meshes]
 
         for (let mesh of _meshes) {
-            mesh.updateMatrixWorld()
-            mesh.updateBuffer()
+            if (mesh.isMesh) {
+                mesh.updateMatrixWorld()
+                mesh.updateBuffer()
+            }
 
             if (!mesh.GPUBuffer) {
                 this.createAndWriteBuffer(mesh.buffer)
