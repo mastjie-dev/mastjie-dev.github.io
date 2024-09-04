@@ -6,7 +6,6 @@ import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores
 
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
-import InstanceMesh from '../scenes/InstanceMesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
 import { OrthographicCamera } from '../scenes/Camera.js'
 import NodeCore from '../scenes/NodeCore.js'
@@ -136,7 +135,20 @@ async function main() {
     const player = new Mesh(circleLine, redLineMat)
     player.position.x = -5
     player.scale.set(2, 2, 0)
-    const meshes = [player]
+
+    const playerBounding = new BoundingCircle(2)
+    playerBounding.position.copy(player.position)
+
+    const pipes = new Mesh(box2dLine, redLineMat)
+    pipes.scale.set(2, 20, 0)
+    pipes.position.set(20, 20, 0)
+
+    const pipesBounding = new BoundingBox2D()
+    pipesBounding.min.set(-1, -20)
+    pipesBounding.max.set(1, 20)
+    pipesBounding.position.copy(pipes.position)
+
+    const meshes = [player, pipes]
 
     instance.bindMeshesResources(meshes)
     instance.bindCamerasResource(camera)
@@ -166,8 +178,9 @@ async function main() {
 
     rpDesc.colorAttachments[0].clearColor[1] = 1
         
-    let gravity = 20
+    const gravity = 20
     let acceleration = 0
+
     const updatePlayer = (dt) => {
         if (acceleration < 0) {
             acceleration += .5
@@ -178,9 +191,33 @@ async function main() {
         instance.writeBuffer(player.buffer)
     }
 
+    const scrollSpeed = 10
+    const updatePipes = (dt) => {
+        pipes.position.x -= scrollSpeed * dt
+        pipes.updateMatrixWorld()
+        pipes.updateBuffer()
+        instance.writeBuffer(pipes.buffer)
+
+        if (pipes.position.x < -50) {
+            pipes.position.x = 50
+        }
+
+        pipesBounding.position.copy(pipes.position)
+    }
+
+    const checkCollision = (playerBounding, pipesBounding) => {
+        const hit = playerBounding.intersectBox(pipesBounding)
+
+        if (hit) {
+            console.log(hit)
+        }
+    }
+
     const render = (delta) => {
         const dt = 1 / 60
-        updatePlayer(dt)
+        // updatePlayer(dt)
+        updatePipes(dt)
+        checkCollision(playerBounding, pipesBounding)
 
         const encoder = instance.createCommandEncoder()
 
