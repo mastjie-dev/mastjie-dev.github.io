@@ -1,6 +1,6 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import BufferCore from '../cores/BufferCore.js'
-import { DepthTexture, TargetTexture } from '../cores/TextureCore.js'
+import { DepthTexture} from '../cores/TextureCore.js'
 import VARS from '../cores/VARS.js'
 import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
