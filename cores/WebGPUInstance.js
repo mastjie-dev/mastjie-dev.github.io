@@ -70,7 +70,7 @@ class WebGPUInstance {
     }
 
     writeTexture(textureCore) {
-        if (textureCore.isExternalTexture) {
+        if (textureCore.isExternalTexture || textureCore.isCubeTexture) {
             this.writeExternalTexture(textureCore)
             return this
         }
@@ -94,19 +94,24 @@ class WebGPUInstance {
     }
 
     writeExternalTexture(textureCore) {
-        this.device.queue.copyExternalImageToTexture(
-            {
-                source: textureCore.data,
-                flipY: textureCore.flipY,
-            },
-            {
-                texture: textureCore.GPUTexture
-            },
-            {
-                width: textureCore.width,
-                height: textureCore.height,
-            }
-        )
+        const data = Array.isArray(textureCore.data) ? textureCore.data : [textureCore.data]
+
+        data.forEach((d, l) => {
+            this.device.queue.copyExternalImageToTexture(
+                {
+                    source: d,
+                    flipY: textureCore.flipY,
+                },
+                {
+                    texture: textureCore.GPUTexture,
+                    origin: [0, 0, l]
+                },
+                {
+                    width: textureCore.width,
+                    height: textureCore.height,
+                }
+            )
+        })
     }
 
     createAndWriteTexture(textureCore) {
@@ -145,12 +150,12 @@ class WebGPUInstance {
                 e.storageTexture = {
                     access: resource.access,
                     format: resource.format,
-                    viewDimension: resource.dimension
+                    viewDimension: resource.viewDimension
                 }
             } else {
                 e.texture = {
                     sampleType: resource.sampleType,
-                    viewDimension: resource.dimension,
+                    viewDimension: resource.viewDimension,
                     multisampled: resource.isMultisampled,
                 }
             }
@@ -185,7 +190,9 @@ class WebGPUInstance {
         else if (resource.isTexture) {
             entries.push({
                 binding,
-                resource: resource.GPUTexture.createView()
+                resource: resource.GPUTexture.createView({
+                    dimension: resource.viewDimension
+                })
             })
         }
         else if (resource.isSampler) {

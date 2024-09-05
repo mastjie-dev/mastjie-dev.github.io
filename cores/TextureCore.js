@@ -11,6 +11,7 @@ class TextureCore {
         this.height = height
         this.depth = depth
         this.dimension = dimension
+        this.viewDimension = dimension
         this.format = format
         this.flipY = false
 
@@ -30,13 +31,25 @@ class TextureCore {
     }
 }
 
-class TargetTexture extends TextureCore {
+class CopyTargetTexture extends TextureCore {
     constructor(width, height, depth = 1, dimension = "2d") {
-        super("", "render", width, height, depth, dimension, "bgra8unorm")
+        super("", "copy", width, height, depth, dimension, "bgra8unorm")
 
         this.data = new Uint8Array(width * height * depth * 4) // assume 4 colors channel
         this.usage = GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING
+        this.visibility = GPUShaderStage.FRAGMENT
+    }
+}
+
+class RenderTargetTexture extends TextureCore {
+    constructor(width, height) {
+        super("", "render", width, height, 1, "2d", "bgra8unorm")
+
+        this.data = new Uint8Array(width * height * depth * 4)
+        this.usage = GPUTextureUsage.COPY_DST |
+            GPUTextureUsage.TEXTURE_BINDING |
+            GPUTextureUsage.RENDER_ATTACHMENT
         this.visibility = GPUShaderStage.FRAGMENT
     }
 }
@@ -70,10 +83,25 @@ class StorageTexture extends TextureCore {
 
         this.isStorageTexture = true
         this.access = "write-only"
-        this.data = new Uint8Array(width*height*depth*4)
+        this.data = new Uint8Array(width * height * depth * 4)
         this.usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC
             | GPUTextureUsage.STORAGE_BINDING
         this.visibility = GPUShaderStage.COMPUTE
+    }
+}
+
+class CubeTexture extends TextureCore {
+    constructor(width, height, data) {
+        super("", "cube", width, height, 6, "2d", "rgba8unorm")
+
+        this.isCubeTexture = true
+        this.data = data
+        this.usage = GPUTextureUsage.COPY_DST |
+            GPUTextureUsage.TEXTURE_BINDING |
+            GPUTextureUsage.RENDER_ATTACHMENT
+        this.visibility = GPUShaderStage.FRAGMENT
+        this.flipY = true
+        this.viewDimension = "cube"
     }
 }
 
@@ -82,5 +110,7 @@ export {
     ExternalImageTexture,
     DepthTexture,
     StorageTexture,
-    TargetTexture,
+    CopyTargetTexture,
+    RenderTargetTexture,
+    CubeTexture,
 }
