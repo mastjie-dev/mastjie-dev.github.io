@@ -325,22 +325,12 @@ class Matrix4 {
     orthographic(left, right, bottom, top, near, far) {
         const el = this.elements
 
-        // wgpu-matrix calculation
-        // el[0] = 2 / (right - left)
-        // el[5] = 2 / (top - bottom)
-        // el[10] = 1 / (near - far)
-
-        // el[12] = (right + left) / (left - right)
-        // el[13] = (top + bottom) / (bottom - top)
-        // el[14] = near / (near - far)
-        // el[15] = 1
-
-        el[0]  = 2 / (left - right)
-        el[5]  = 2 / (top - bottom)
+        el[0]  = 2 / (right - left)
+        el[5]  = 2 / (bottom - top)
         el[10] = 1 / (near - far)
         
-        el[12] = (left + right) / (right - left)
-        el[13] = (top + bottom) / (bottom - top)
+        el[12] = (left + right) / (left - right)
+        el[13] = (top + bottom) / (top - bottom)
         el[14] = near / (near - far)
         el[15] = 1
 
