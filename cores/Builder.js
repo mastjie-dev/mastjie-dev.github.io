@@ -56,7 +56,7 @@ const RenderPassDescriptorBuilder = {
             colorAttachments: [
                 {
                     view: null,
-                    clearColor: [0, 0, 0, 0],
+                    clearValue: [0, 0, 0, 0],
                     loadOp: "clear",
                     storeOp: "store",
                 }
