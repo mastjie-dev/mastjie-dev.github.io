@@ -327,8 +327,8 @@ function createCircleLine(radius) {
 
 function createAxis(scale = 1) {
     const position = new Float32Array([
-        0, 0, 0, 0, 0, -scale,
-        0, 0, 0, 0, -scale, 0,
+        0, 0, 0, 0, 0, scale,
+        0, 0, 0, 0, scale, 0,
         0, 0, 0, scale, 0, 0,
     ])
     const color = new Float32Array([
