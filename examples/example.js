@@ -46,15 +46,14 @@ struct Model {
 )
     -> @location(0) vec4f 
 {
-    let _color = vec3f(input.uv.y);
-    return vec4f(_color, 1.);
+    return vec4f(color, 1.);
 }
 `
 
 const lineShader = `
 struct VSOutput {
     @builtin(position) position: vec4f,
-    @location(0) uv: vec2f,
+    @location(0) color: vec3f,
 };
 
 struct Camera {
@@ -77,6 +76,7 @@ struct Model {
 {
     var output: VSOutput;
     output.position = debugCamera.projection * debugCamera.view * model.matrix * vec4f(position, 1.);
+    output.color = color;
     return output;
 }
 
@@ -107,7 +107,7 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(50, width/height, .1, 1000)
-    mainCamera.position.set(2, -10, -10)
+    mainCamera.position.set(5, -10, -20)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
     const gridGeo = GeometryUtils.createGrid(100, 2)
@@ -126,7 +126,6 @@ async function main() {
 
     const box = new Mesh(boxGeo, blueMat)
     const grid = new Mesh(gridGeo, whiteLineMat)
-    // box.position.x = 2
 
     const meshes = [box, grid]
 
@@ -158,7 +157,7 @@ async function main() {
 
 
     const rpDesc = RenderPassDescriptorBuilder.start().end()
-    rpDesc.colorAttachments[0].clearValue[2] = .6
+    rpDesc.colorAttachments[0].clearValue = [.4, .4, .4, 0]
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
