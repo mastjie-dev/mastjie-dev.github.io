@@ -31,7 +31,8 @@ struct Model {
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
-    @location(1) uv: vec2f,
+    @location(1) normal: vec3f,
+    @location(2) uv: vec2f,
 ) -> VSOutput
 {
     var output: VSOutput;
@@ -45,7 +46,8 @@ struct Model {
 )
     -> @location(0) vec4f 
 {
-    return vec4f(color, 1.);
+    let _color = vec3f(input.uv.y);
+    return vec4f(_color, 1.);
 }
 `
 
@@ -105,7 +107,7 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(50, width/height, .1, 1000)
-    mainCamera.position.set(0, -20, -20)
+    mainCamera.position.set(2, -10, -10)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
     const gridGeo = GeometryUtils.createGrid(100, 2)
@@ -124,6 +126,7 @@ async function main() {
 
     const box = new Mesh(boxGeo, blueMat)
     const grid = new Mesh(gridGeo, whiteLineMat)
+    // box.position.x = 2
 
     const meshes = [box, grid]
 
@@ -155,6 +158,7 @@ async function main() {
 
 
     const rpDesc = RenderPassDescriptorBuilder.start().end()
+    rpDesc.colorAttachments[0].clearValue[2] = .6
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)

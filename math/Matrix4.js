@@ -293,7 +293,7 @@ class Matrix4 {
         f.subVector(position, target).normalize()
 
         const r = new Vector3()
-        r.crossVector(up, f).normalize()
+        r.crossVector(f, up).normalize()
 
         const u = new Vector3()
         u.crossVector(f, r)
@@ -311,7 +311,7 @@ class Matrix4 {
     }
 
     perspective(fov, aspect, near, far) {
-        const f = Math.tan(Math.PI * .5 - .5 * -fov)
+        const f = Math.tan(Math.PI * .5 - .5 * fov)
 
         this.elements[0] = f / aspect
         this.elements[5] = f
