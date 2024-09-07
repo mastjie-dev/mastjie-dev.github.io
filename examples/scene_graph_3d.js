@@ -4,15 +4,13 @@ import { DepthTexture } from '../cores/TextureCore.js'
 import VARS from '../cores/VARS.js'
 
 import Mesh from '../scenes/Mesh.js'
-import BaseGeometry from '../scenes/BaseGeometry.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
-import { PipelineDescriptorBuilder } from '../cores/Builder.js'
+import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
 import NodeCore from '../scenes/NodeCore.js'
 
 const shaderCode = `
-
 struct Camera {
     projection: mat4x4<f32>,
     view: mat4x4<f32>
@@ -43,63 +41,6 @@ struct Model {
 }
 `
 
-function bindTransformResource(instance, owner) {
-    instance
-        .createAndWriteBuffer(owner.buffer)
-        .createBindGroupLayoutEntries(owner.buffer, owner.bindGroupLayout.entries)
-        .createBindGroupLayout(owner, owner.bindGroupLayout.entries)
-        .createBindGroupEntries(owner.buffer, owner.bindGroup.entries)
-        .createBindGroup(owner, owner.bindGroup.entries)
-}
-
-function bindVisualResource(instance, owner) {
-    owner.geometry.attributes.forEach(attribute => {
-        if (!attribute.GPUBuffer) {
-            instance.createAndWriteBuffer(attribute)
-        }
-    })
-    if (!owner.geometry.index.GPUBuffer) {
-        instance.createAndWriteBuffer(owner.geometry.index)
-    }
-    if (!owner.geometry.vertexBufferLayout) {
-        instance.createVertexBufferLayout(owner.geometry)
-    }
-
-    owner.material.buffers.forEach(buffer => {
-        instance
-            .createAndWriteBuffer(buffer)
-            .createBindGroupLayoutEntries(buffer, owner.material.bindGroupLayout.entries)
-            .createBindGroupLayout(owner.material, owner.material.bindGroupLayout.entries)
-            .createBindGroupEntries(buffer, owner.material.bindGroup.entries)
-            .createBindGroup(owner.material, owner.material.bindGroup.entries)
-    })
-}
-
-function bindResources(instance, owner) {
-    if (owner.isCamera) {
-        owner.updateProjectionMatrix()
-        owner.updateViewMatrix()
-        bindTransformResource(instance, owner)
-    }
-
-    else if (owner.isMesh) {
-        owner.updateMatrixWorld()
-        owner.updateBuffer()
-        bindTransformResource(instance, owner)
-        bindVisualResource(instance, owner)
-    }
-
-    else {
-        owner.updateMatrixWorld()
-    }
-
-    if (owner.children.length !== 0) {
-        owner.children.forEach(child => {
-            bindResources(instance, child)
-        })
-    }
-}
-
 async function main() {
     const width = window.innerWidth
     const height = window.innerHeight
@@ -119,24 +60,22 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(75, width / height)
-    mainCamera.position.set(0, 0, -30)
+    mainCamera.position.set(0, 0, -10)
 
-    const boxData = GeometryUtils.createBox()
-    const boxGeo = new BaseGeometry("box")
-    boxGeo.addAttributes(
-        new BufferCore("position", "attribute", boxData.position, VARS.Buffer.Attribute32x3))
-    boxGeo.addAttributes(new BufferCore("uv", "attribute", boxData.uv, VARS.Buffer.Attribute32x2))
-    boxGeo.addIndex(new BufferCore("index", "index", boxData.index, VARS.Buffer.IndexUint16))
+    const boxGeo = GeometryUtils.createBox()
 
     const redMat = new BaseMaterial("red")
+    redMat.shader = shaderCode
     redMat.addBuffer(
         new BufferCore("red color", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform))
 
     const greenMat = new BaseMaterial("green")
+    greenMat.shader = shaderCode
     greenMat.addBuffer(
         new BufferCore("red color", "uniform", new Float32Array([0, 1, 0]), VARS.Buffer.Uniform))
 
     const blueMat = new BaseMaterial("blue")
+    blueMat.shader = shaderCode
     blueMat.addBuffer(
         new BufferCore("red color", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform))
 
@@ -155,15 +94,12 @@ async function main() {
     rootNode.addChild(box3)
     rootNode.addChild(box2)
 
-    bindResources(instance, mainCamera)
-    bindResources(instance, rootNode)
-
     const meshes = [box3, box2, box1]
-    const renderObjects = []
 
-    const shaderModule = instance.createShaderModule(shaderCode)
+    instance.bindCamerasResource(mainCamera)
+    instance.bindMeshesResources(meshes)
 
-    meshes.forEach(mesh => {
+    const renderObjects = meshes.map(mesh => {
         const pipelineLayout = instance.createPipelineLayout(
             mainCamera.bindGroupLayout.GPUBindGroupLayout,
             mesh.material.bindGroupLayout.GPUBindGroupLayout,
@@ -173,8 +109,8 @@ async function main() {
         const pipelineDescriptor = PipelineDescriptorBuilder
             .start()
             .layout(pipelineLayout)
-            .vertex(shaderModule, mesh.geometry.vertexBufferLayout)
-            .fragment(shaderModule, canvasFormat)
+            .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
+            .fragment(mesh.material.shaderModule, canvasFormat)
             .primitive(mesh.material.cullMode)
             .depthStencil(
                 mesh.material.depthWriteEnabled,
@@ -182,47 +118,50 @@ async function main() {
                 mesh.material.depthCompare)
             .end()
 
-        renderObjects.push(instance.createRenderPipeline(mesh, pipelineDescriptor))
+        return instance.createRenderPipeline(mesh, pipelineDescriptor)
     })
 
-    const renderPassDesc = structuredClone(VARS.RenderPassDescriptor.Standard)
+    const renderPassDesc = RenderPassDescriptorBuilder.start().end()
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
 
     const render = () => {
-        instance.custom(device => {
-            rootNode.rotation.z += .008
-            rootNode.updateMatrixWorld()
-            box2.rotation.z -= .016
+        rootNode.rotation.z += .008
+        rootNode.updateMatrixWorld()
+        box2.rotation.z -= .016
 
-            for (let box of meshes) {
-                box.updateMatrixWorld()
-                box.updateBuffer()
-                instance.writeBuffer(box.buffer)
+        for (let box of meshes) {
+            box.updateMatrixWorld()
+            box.updateBuffer()
+            instance.writeBuffer(box.buffer)
+        }
+
+        const encoder = instance.createCommandEncoder()
+
+        renderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
+        renderPassDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
+
+        const pass = encoder.beginRenderPass(renderPassDesc)
+
+        for (let ro of renderObjects) {
+            pass.setPipeline(ro.pipeline)
+
+            let i = 0
+            for (let attr of ro.mesh.geometry.attributes) {
+                pass.setVertexBuffer(i, attr.GPUBuffer)
+                ++i
             }
+            pass.setBindGroup(0, mainCamera.bindGroup.GPUBindGroup)
+            pass.setBindGroup(1, ro.mesh.material.bindGroup.GPUBindGroup)
+            pass.setBindGroup(2, ro.mesh.bindGroup.GPUBindGroup)
+            pass.setIndexBuffer(ro.mesh.geometry.index.GPUBuffer, ro.mesh.geometry.index.format)
+            pass.drawIndexed(ro.mesh.geometry.index.length)
+        }
 
-            const encoder = device.createCommandEncoder()
+        pass.end()
+        const finish = encoder.finish()
+        instance.submitEncoder([finish])
 
-            renderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
-            renderPassDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
-
-            const pass = encoder.beginRenderPass(renderPassDesc)
-
-            for (let ro of renderObjects) {
-                pass.setPipeline(ro.pipeline)
-                pass.setVertexBuffer(0, ro.mesh.geometry.attributes[0].GPUBuffer)
-                pass.setVertexBuffer(1, ro.mesh.geometry.attributes[1].GPUBuffer)
-                pass.setBindGroup(0, mainCamera.bindGroup.GPUBindGroup)
-                pass.setBindGroup(1, ro.mesh.material.bindGroup.GPUBindGroup)
-                pass.setBindGroup(2, ro.mesh.bindGroup.GPUBindGroup)
-                pass.setIndexBuffer(ro.mesh.geometry.index.GPUBuffer, ro.mesh.geometry.index.format)
-                pass.drawIndexed(ro.mesh.geometry.index.length)
-            }
-
-            pass.end()
-            const finish = encoder.finish()
-            device.queue.submit([finish])
-        })
         requestAnimationFrame(render)
     }
 

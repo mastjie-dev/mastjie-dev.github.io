@@ -1,6 +1,6 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import BufferCore from '../cores/BufferCore.js'
-import { DepthTexture, TargetTexture } from '../cores/TextureCore.js'
+import { DepthTexture, RenderTargetTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
 import VARS from '../cores/VARS.js'
 import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
@@ -164,10 +164,8 @@ async function main() {
     })
 
     const halfWidth = width / 2
-    const left = new TargetTexture(halfWidth, height)
-    left.usage += GPUTextureUsage.RENDER_ATTACHMENT
-    const right = new TargetTexture(halfWidth, height)
-    right.usage += GPUTextureUsage.RENDER_ATTACHMENT
+    const left = new RenderTargetTexture(halfWidth, height)
+    const right = new RenderTargetTexture(halfWidth, height)
 
     const fov = 50
     const aspect = halfWidth / height

@@ -3,14 +3,13 @@ import BufferCore from '../cores/BufferCore.js'
 import { DepthTexture } from '../cores/TextureCore.js'
 import VARS from '../cores/VARS.js'
 
-import BaseGeometry from '../scenes/BaseGeometry.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
-import { PipelineDescriptorBuilder } from '../cores/Builder.js'
+import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -35,7 +34,8 @@ struct Model {
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
-    @location(1) uv: vec2f,
+    @location(1) normal: vec3f,
+    @location(2) uv: vec2f,
 ) -> VSOutput
 {
     var output: VSOutput;
@@ -121,19 +121,14 @@ async function main() {
     const computePL = instance.createPipelineLayout(computeObject.bindGroupLayout.GPUBindGroupLayout)
     instance.createComputePipeline(computeObject, computePL, computeModule)
 
-    const data = GeometryUtils.createBox(2, 2, 2, 15, 15, 15)
-
-    const geo = new BaseGeometry()
-    geo.addAttributes(new BufferCore(
-        "position", "attribute", data.position, VARS.Buffer.Attribute32x3))
-    geo.addAttributes(new BufferCore("uv", "attributes", data.uv, VARS.Buffer.Attribute32x2))
-    geo.addIndex(new BufferCore("index", "index", data.index, VARS.Buffer.IndexUint16))
+    const geo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
 
     const outBuffer = new BufferCore("position out", "read-only-storage", storageData, VARS.Buffer.Storage)
     outBuffer.usage -= GPUBufferUsage.COPY_SRC
     outBuffer.visibility = GPUShaderStage.VERTEX
 
     const mat = new BaseMaterial()
+    mat.shader = shaderCode
     mat.addBuffer(new BufferCore("blue", "uniform",
         new Float32Array([0, 0, 1]), VARS.Buffer.Uniform))
     mat.addBuffer(outBuffer)
@@ -143,43 +138,33 @@ async function main() {
     mesh.updateBuffer()
 
     const camera = new PerspectiveCamera(75, width / height)
-    camera.position.set(0, 0, -15)
+    camera.position.set(0, -2, -5)
     camera.updateProjectionMatrix()
     camera.updateViewMatrix()
 
-    bindResource(instance, mat, mat.buffers[0])
-    bindResource(instance, mat, mat.buffers[1])
-    bindResource(instance, mesh, mesh.buffer)
-    bindResource(instance, camera, camera.buffer)
-
-    instance
-        .createAndWriteBuffer(geo.attributes[0])
-        .createAndWriteBuffer(geo.attributes[1])
-        .createAndWriteBuffer(geo.index)
-        .createVertexBufferLayout(geo)
-
-    const shaderModule = instance.createShaderModule(shaderCode)
+    instance.bindCamerasResource(camera)
+    instance.bindMeshesResources(mesh)
 
     const renderPL = instance.createPipelineLayout(
-        mat.bindGroupLayout.GPUBindGroupLayout,
+        mesh.material.bindGroupLayout.GPUBindGroupLayout,
         camera.bindGroupLayout.GPUBindGroupLayout,
         mesh.bindGroupLayout.GPUBindGroupLayout,
     )
     const rpDesc = PipelineDescriptorBuilder
         .start()
         .layout(renderPL)
-        .vertex(shaderModule, geo.vertexBufferLayout)
-        .fragment(shaderModule, canvasFormat)
-        .primitive(mat.cullMode)
+        .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
+        .fragment(mesh.material.shaderModule, canvasFormat)
+        .primitive(mesh.material.cullMode)
         .depthStencil(
-            mat.depthWriteEnabled,
-            mat.depthFormat,
-            mat.depthCompare
+            mesh.material.depthWriteEnabled,
+            mesh.material.depthFormat,
+            mesh.material.depthCompare
         )
         .end()
 
     const renderObject = instance.createRenderPipeline(mesh, rpDesc)
-    const renderPassDescriptor = structuredClone(VARS.RenderPassDescriptor.Standard)
+    const renderPassDescriptor = RenderPassDescriptorBuilder.start().end()
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
@@ -191,38 +176,41 @@ async function main() {
     instance.createBuffer(rawBuffer)
 
     const render = () => {
-        instance.custom(device => {
-            const encoder = device.createCommandEncoder()
+        const encoder = instance.createCommandEncoder()
 
-            timeBuffer.data[0] += .016
-            instance.writeBuffer(timeBuffer)
+        timeBuffer.data[0] += .016
+        instance.writeBuffer(timeBuffer)
 
-            const computePass = encoder.beginComputePass()
-            computePass.setPipeline(computeObject.pipeline)
-            computePass.setBindGroup(0, computeObject.bindGroup.GPUBindGroup)
-            computePass.dispatchWorkgroups(...computeObject.workgroups)
-            computePass.end()
+        const computePass = encoder.beginComputePass()
+        computePass.setPipeline(computeObject.pipeline)
+        computePass.setBindGroup(0, computeObject.bindGroup.GPUBindGroup)
+        computePass.dispatchWorkgroups(...computeObject.workgroups)
+        computePass.end()
 
-            instance.copyBufferToBuffer(encoder, inBuffer, outBuffer)
+        instance.copyBufferToBuffer(encoder, inBuffer, outBuffer)
 
-            renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
-            renderPassDescriptor.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
+        renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
+        renderPassDescriptor.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
 
-            const renderPass = encoder.beginRenderPass(renderPassDescriptor)
-            renderPass.setPipeline(renderObject.pipeline)
-            renderPass.setVertexBuffer(0, geo.attributes[0].GPUBuffer)
-            renderPass.setVertexBuffer(1, geo.attributes[1].GPUBuffer)
-            renderPass.setBindGroup(0, mat.bindGroup.GPUBindGroup)
-            renderPass.setBindGroup(1, camera.bindGroup.GPUBindGroup)
-            renderPass.setBindGroup(2, mesh.bindGroup.GPUBindGroup)
-            renderPass.setIndexBuffer(geo.index.GPUBuffer, geo.index.format)
-            renderPass.drawIndexed(geo.index.length)
-            renderPass.end()
+        const renderPass = encoder.beginRenderPass(renderPassDescriptor)
+        renderPass.setPipeline(renderObject.pipeline)
 
-            device.queue.submit([encoder.finish()])                
-            
-            requestAnimationFrame(render)
-        })
+        let i = 0
+        for (let attr of mesh.geometry.attributes) {
+            renderPass.setVertexBuffer(i, attr.GPUBuffer)
+            ++i
+        }
+
+        renderPass.setBindGroup(0, mat.bindGroup.GPUBindGroup)
+        renderPass.setBindGroup(1, camera.bindGroup.GPUBindGroup)
+        renderPass.setBindGroup(2, mesh.bindGroup.GPUBindGroup)
+        renderPass.setIndexBuffer(geo.index.GPUBuffer, geo.index.format)
+        renderPass.drawIndexed(geo.index.length)
+        renderPass.end()
+
+        instance.submitEncoder([encoder.finish()])
+
+        // requestAnimationFrame(render)
     }
     render()
 
