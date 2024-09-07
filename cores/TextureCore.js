@@ -46,7 +46,7 @@ class RenderTargetTexture extends TextureCore {
     constructor(width, height) {
         super("", "render", width, height, 1, "2d", "bgra8unorm")
 
-        this.data = new Uint8Array(width * height * depth * 4)
+        this.data = new Uint8Array(width * height * 4)
         this.usage = GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING |
             GPUTextureUsage.RENDER_ATTACHMENT
