@@ -6,9 +6,9 @@ import Matrix4 from "../math/Matrix4.js"
 
 
 class InstanceMesh {
-    constructor(geometry, material, count, name = "") {
-        this.name = name
-        this.isMesh = true
+    constructor(geometry, material, count) {
+        this.name = ""
+        this.isInstanceMesh = true
         this.geometry = geometry
         this.material = material
         this.count = count
