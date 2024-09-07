@@ -6,10 +6,12 @@ Building small rendering library to learn WebGPU and graphics programming
  - Visual & text debugger
  - World axis viewer
  - shadow mapping
- - particles
+ - particles: example
  - mipmaps
  - query performance
  - blending
+ - frustum culling
+ - compute resources & pipeline creation
 
 ## Bugs
  - Rewrite old examples
