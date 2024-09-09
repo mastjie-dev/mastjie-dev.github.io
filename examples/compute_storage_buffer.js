@@ -10,6 +10,7 @@ import { PerspectiveCamera } from '../scenes/Camera.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
 import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
+import Stats from '../misc/Stats.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -175,7 +176,11 @@ async function main() {
     })
     instance.createBuffer(rawBuffer)
 
-    const render = () => {
+    const stats = new Stats()
+
+    const render = (time) => {
+        const start = performance.now()
+
         const encoder = instance.createCommandEncoder()
 
         timeBuffer.data[0] += .016
@@ -210,9 +215,11 @@ async function main() {
 
         instance.submitEncoder([encoder.finish()])
 
-        // requestAnimationFrame(render)
+        const end = performance.now()
+        stats.update(time, end - start)
+        requestAnimationFrame(render)
     }
-    render()
+    requestAnimationFrame(render)
 
     document.body.appendChild(canvas)
 }
