@@ -12,6 +12,7 @@ Building small rendering library to learn WebGPU and graphics programming
  - blending
  - frustum culling
  - compute resources & pipeline creation
+ - antialias
 
 ## Bugs
  - Rewrite old examples
