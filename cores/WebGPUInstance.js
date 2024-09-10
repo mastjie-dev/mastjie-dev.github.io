@@ -20,7 +20,7 @@ class WebGPUInstance {
     async init() {
         this.adapter = await navigator.gpu.requestAdapter()
         this.device = await this.adapter.requestDevice({
-            requiredFeatures: ['bgra8unorm-storage']
+            requiredFeatures: ['bgra8unorm-storage', 'timestamp-query']
         })
     }
 
