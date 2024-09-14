@@ -138,7 +138,7 @@ struct Model {
     let leftView = textureSample(left, mapSampler, leftUV).rgb;
     let rightView = textureSample(right, mapSampler, rightUV).rgb;
 
-    let split = step(0, mid);
+    let split = step(mid, 0);
     let color = split * leftView + (1.-split) * rightView;
     
     return vec4f(color, 1.);
@@ -220,7 +220,7 @@ async function main() {
     const quad = new Mesh(quadGeometry, quadMaterial)
 
     const quadCamera = new OrthographicCamera(-1, 1, 1, -1, .1, 10)
-    quadCamera.position.z = 1
+    quadCamera.position.z = -1
 
     const meshes = [box, grid, quad, frustum]
     const cameras = [mainCamera, debugCamera, quadCamera]

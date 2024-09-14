@@ -138,7 +138,7 @@ struct Model {
     let leftView = textureSample(left, mapSampler, leftUV).rgb;
     let rightView = textureSample(right, mapSampler, rightUV).rgb;
 
-    let split = step(0, mid);
+    let split = step(mid, 0);
     let color = split * leftView + (1.-split) * rightView;
     
     return vec4f(color, 1.);
@@ -174,11 +174,11 @@ async function main() {
 
     const camHeight = 20
     const camWidth = camHeight * aspect
-    const mainCamera = new OrthographicCamera(-camWidth, camWidth, camHeight, -camHeight, 1, 50)
-    mainCamera.position.set(0, -20, -20)
+    const mainCamera = new OrthographicCamera(-camWidth, camWidth, camHeight, -camHeight, 1, 40)
+    mainCamera.position.set(0, 0, -20)
 
     const debugCamera = new PerspectiveCamera(75, halfWidth / height)
-    debugCamera.position.set(250, -200, 0)
+    debugCamera.position.set(80, -80, 0)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
     const gridGeo = GeometryUtils.createGrid(100, 5)
@@ -186,7 +186,7 @@ async function main() {
 
     const blue = new BufferCore("blue", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform)
     const white = new BufferCore("white", "uniform", new Float32Array([1, 1, 1]), VARS.Buffer.Uniform)
-    const red = new BufferCore("white", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform)
+    const red = new BufferCore("red", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform)
 
     const blueMat = new BaseMaterial("blue")
     blueMat.shader = unlitSC
@@ -219,7 +219,7 @@ async function main() {
     const quad = new Mesh(quadGeometry, quadMaterial)
 
     const quadCamera = new OrthographicCamera(-1, 1, 1, -1, .1, 10)
-    quadCamera.position.z = 1
+    quadCamera.position.z = -1
 
     const meshes = [box, grid, quad, frustum]
     const cameras = [mainCamera, debugCamera, quadCamera]
