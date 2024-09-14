@@ -126,6 +126,18 @@ class WebGPUInstance {
         return this
     }
 
+    createQuerySet(query) {
+        query.GPUQuerySet = this.device.createQuerySet({
+            type: query.type,
+            count: query.count,
+        })
+
+        this.createBuffer(query.resolve)
+            .createBuffer(query.result)
+        
+        return this
+    }
+
     createBindGroupLayoutEntries(resource, entries) {
         let binding = entries.length
 

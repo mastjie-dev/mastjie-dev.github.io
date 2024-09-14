@@ -98,6 +98,14 @@ const RenderPassDescriptorBuilder = {
         this.descriptor.depthStencilAttachment[key] = value
         return this
     },
+    timestampWrites(querySet) {
+        this.descriptor.timestampWrites = {
+            querySet: querySet.GPUQuerySet,
+            beginningOfPassWriteIndex: 0,
+            endOfPassWriteIndex: 1,
+        }
+        return this
+    },
     end() {
         return this.descriptor
     }
