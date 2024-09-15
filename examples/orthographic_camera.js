@@ -167,17 +167,17 @@ async function main() {
     const left = new RenderTargetTexture(halfWidth, height)
     const right = new RenderTargetTexture(halfWidth, height)
 
-    const fov = 50
+    const fov = 75
     const aspect = halfWidth / height
     const near = 0.1
     const far = 50
 
     const camHeight = 20
     const camWidth = camHeight * aspect
-    const mainCamera = new OrthographicCamera(-camWidth, camWidth, camHeight, -camHeight, 1, 40)
-    mainCamera.position.set(0, 0, -20)
+    const mainCamera = new OrthographicCamera(-camWidth, camWidth, camHeight, -camHeight, near, far)
+    mainCamera.position.set(0, -20, -20)
 
-    const debugCamera = new PerspectiveCamera(75, halfWidth / height)
+    const debugCamera = new PerspectiveCamera(fov, halfWidth / height)
     debugCamera.position.set(80, -80, 0)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
@@ -206,6 +206,12 @@ async function main() {
     const grid = new Mesh(gridGeo, whiteLineMat)
     const frustum = new Mesh(boxLineGeo, redLineMat)
 
+    // webgpu z goes 0 to 1
+    const points = frustum.geometry.attributes[0].data
+    for (let i = 0; i < points.length; i += 3) {
+        points[i + 2] = (points[i + 2] + 1) / 2
+    }
+
     // Quad
     const quadGeometry = GeometryUtils.createPlane(2, 2)
 
@@ -226,12 +232,11 @@ async function main() {
     instance.bindMeshesResources(meshes)
     instance.bindCamerasResource(cameras)
 
-    const pm = new Matrix4()
-    pm.copy(mainCamera.projectionMatrix)
-
     const vm = new Matrix4()
     vm.copy(mainCamera.viewMatrix)
 
+    const pm = new Matrix4()
+    pm.copy(mainCamera.projectionMatrix)
     pm.multiply(vm)
     pm.inverse()
 
