@@ -281,6 +281,8 @@ class Matrix4 {
         m[13] = m7*invDet
         m[14] = -m11*invDet
         m[15] = m15*invDet
+
+        return this
     }
 
     lookAt(position, target, up) {
