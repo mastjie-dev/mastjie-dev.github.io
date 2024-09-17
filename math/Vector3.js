@@ -159,6 +159,17 @@ class Vector3 {
         this.z = this.z < a.z ? a.z : this.z > b.z ? b.z : this.z
         return this
     }
+
+    multiplyMatrix4(m4, w = 0) {
+        const m = m4.elements
+        const x = this.x*m[0] + this.y*m[4] + this.z*m[8]  + w*m[12]
+        const y = this.x*m[1] + this.y*m[5] + this.z*m[9]  + w*m[13]
+        const z = this.x*m[2] + this.y*m[6] + this.z*m[10] + w*m[14]
+
+        this.set(x, y, z)
+
+        return this
+    }
 }
 
 export default Vector3
