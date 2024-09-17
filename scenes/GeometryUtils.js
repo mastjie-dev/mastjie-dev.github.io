@@ -38,25 +38,25 @@ function createPlaneInternal(
                     px = -halfWidth + widthStep * x
                     py = -halfHeight + heightStep * y
                     pz = faceOff
-                    nr.push(0, 0, 1)
+                    nr.push(0, 0, -1)
                     break
                 case "back":
                     px = halfWidth - widthStep * x
                     py = -halfHeight + heightStep * y
                     pz = faceOff
-                    nr.push(0, 0, .5)
+                    nr.push(0, 0, 1)
                     break
                 case "up":
                     px = -halfWidth + widthStep * x
                     py = faceOff
                     pz = halfHeight - heightStep * y
-                    nr.push(0, 1, 0)
+                    nr.push(0, -1, 0)
                     break
                 case "down":
                     px = -halfWidth + widthStep * x
                     py = faceOff
                     pz = -halfHeight + heightStep * y
-                    nr.push(0, .5, 0)
+                    nr.push(0, 1, 0)
                     break
                 case "right":
                     px = faceOff
@@ -68,7 +68,7 @@ function createPlaneInternal(
                     px = faceOff
                     py = -halfHeight + heightStep * y
                     pz = halfWidth - widthStep * x
-                    nr.push(.5, 0, 0)
+                    nr.push(-1, 0, 0)
                     break
             }
 
