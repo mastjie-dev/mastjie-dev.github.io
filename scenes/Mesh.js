@@ -25,8 +25,12 @@ class Mesh extends NodeCore {
         this.buffer.data.set(this.normalMatrix.elements, 16)
     }
 
-    updateNormalMatrix() {
-      // TODO:   
+    updateNormalMatrix(camera) {
+      this.normalMatrix
+        .copy(camera.viewMatrix)
+        .multiply(this.worldMatrix)
+        .inverse()
+        .transpose()
     }
 }
 
