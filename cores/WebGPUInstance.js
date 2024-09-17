@@ -328,6 +328,22 @@ class WebGPUInstance {
         }
     }
 
+    bindLightsResource(lights) {
+        const _lights = Array.isArray(lights) ? lights : [lights]
+
+        for (let l of _lights) {
+            l.updateBuffer()
+            if (!l.GPUBuffer) {
+                this
+                    .createAndWriteBuffer(l.buffer)
+                    .createBindGroupLayoutEntries(l.buffer, l.bindGroupLayout.entries)
+                    .createBindGroupLayout(l, l.bindGroupLayout.entries)
+                    .createBindGroupEntries(l.buffer, l.bindGroup.entries)
+                    .createBindGroup(l, l.bindGroup.entries)
+            }
+        }
+    }
+
     bindMeshesResources(meshes) {
         const _meshes = Array.isArray(meshes) ? meshes : [meshes]
 
