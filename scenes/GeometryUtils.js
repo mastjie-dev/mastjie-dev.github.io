@@ -221,16 +221,19 @@ function createSphereCube(radius = 1, segment = 2) {
     return geometry
 }
 
-function createGrid(dimension = 100, gridSize = 1) {
-    const segment = Math.floor(dimension / gridSize)
-    const vertices = segment + 1
-    const {
-        position, normal, uv
-    } = createPlaneInternal(dimension, dimension, segment, segment, { dir: "up" })
+function createGrid(dimension = 100, gridSize = 5) {
+    const segment = Math.round(dimension / gridSize)
+    const isOdd = segment % 2
+    const d = isOdd ? dimension + segment : dimension
+    const s = isOdd ? segment + 1 : segment
+    const vertices = s + 1
+    const { position } = createPlaneInternal(d, d, s, s, {
+        dir: "up"
+    })
 
     const index = []
-    for (let y = 0; y < segment; y++) {
-        for (let x = 0; x < segment; x++) {
+    for (let y = 0; y < s; y++) {
+        for (let x = 0; x < s; x++) {
             const v1 = x + y * vertices
             const v2 = v1 + vertices
             const v3 = v2 + 1
