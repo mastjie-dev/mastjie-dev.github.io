@@ -1,93 +1,13 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import BufferCore from '../cores/BufferCore.js'
 import { DepthTexture} from '../cores/TextureCore.js'
-import VARS from '../cores/VARS.js'
 import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
-import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
+import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
+import Vector3 from '../math/Vector3.js'
 
-const unlitShader = `
-struct VSOutput {
-    @builtin(position) position: vec4f,
-    @location(0) uv: vec2f,
-};
-
-struct Camera {
-    projection: mat4x4<f32>,
-    view: mat4x4<f32>,
-};
-
-struct Model {
-    matrix: mat4x4<f32>,
-    normal: mat4x4<f32>,
-};
-
-@group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> debugCamera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
-
-@vertex fn main_vertex(
-    @location(0) position: vec3f,
-    @location(1) normal: vec3f,
-    @location(2) uv: vec2f,
-) -> VSOutput
-{
-    var output: VSOutput;
-    output.position = debugCamera.projection * debugCamera.view * model.matrix * vec4f(position, 1.);
-    output.uv = uv;
-    return output;
-}
-
-@fragment fn main_fragment(
-    input: VSOutput,
-)
-    -> @location(0) vec4f 
-{
-    return vec4f(color, 1.);
-}
-`
-
-const lineShader = `
-struct VSOutput {
-    @builtin(position) position: vec4f,
-    @location(0) color: vec3f,
-};
-
-struct Camera {
-    projection: mat4x4<f32>,
-    view: mat4x4<f32>,
-};
-
-struct Model {
-    matrix: mat4x4<f32>,
-    normal: mat4x4<f32>,
-};
-
-@group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> debugCamera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
-
-@vertex fn main_vertex(
-    @location(0) position: vec3f,
-) -> VSOutput
-{
-    var output: VSOutput;
-    output.position = debugCamera.projection * debugCamera.view * model.matrix * vec4f(position, 1.);
-    output.color = color;
-    return output;
-}
-
-@fragment fn main_fragment(
-    input: VSOutput,
-)
-    -> @location(0) vec4f 
-{
-    return vec4f(color, 1.);
-}
-`
 async function main() {
     const width = window.innerWidth
     const height = window.innerHeight
@@ -110,22 +30,13 @@ async function main() {
     mainCamera.position.set(5, -10, -20)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
-    const gridGeo = GeometryUtils.createGrid(100, 2)
+    const gridGeo = GeometryUtils.createGrid(100, 5)
 
-    const blue = new BufferCore("blue", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform)
-    const white = new BufferCore("white", "uniform", new Float32Array([1, 1, 1]), VARS.Buffer.Uniform)
+    const unlitMaterial = MaterialLibs.unlit({ color: new Vector3(0, 0, 1) })
+    const lineMaterial = MaterialLibs.line()
 
-    const blueMat = new BaseMaterial()
-    blueMat.shader = unlitShader
-    blueMat.addBuffer(blue)
-
-    const whiteLineMat = new BaseMaterial()
-    whiteLineMat.shader = lineShader
-    whiteLineMat.topology = "line-list"
-    whiteLineMat.addBuffer(white)
-
-    const box = new Mesh(boxGeo, blueMat)
-    const grid = new Mesh(gridGeo, whiteLineMat)
+    const box = new Mesh(boxGeo, unlitMaterial)
+    const grid = new Mesh(gridGeo, lineMaterial)
 
     const meshes = [box, grid]
 
