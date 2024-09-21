@@ -75,7 +75,7 @@ class WebGPUInstance {
             return this
         }
 
-        const { width, height, depth, dimension } = textureCore
+        const { width, height } = textureCore
         this.device.queue.writeTexture(
             { texture: textureCore.GPUTexture },
             textureCore.data,
@@ -134,7 +134,7 @@ class WebGPUInstance {
 
         this.createBuffer(query.resolve)
             .createBuffer(query.result)
-        
+
         return this
     }
 
@@ -269,12 +269,12 @@ class WebGPUInstance {
         }
     }
 
-    createComputePipeline(computeObject, pipelineLayout, computeModule) {
+    createComputePipeline(compute, pipelineLayout) {
         const pipeline = this.device.createComputePipeline({
             layout: pipelineLayout,
-            compute: { module: computeModule }
+            compute: { module: compute.shaderModule }
         })
-        computeObject.pipeline = pipeline
+        compute.pipeline = pipeline
     }
 
     createCommandEncoder() {
@@ -406,6 +406,31 @@ class WebGPUInstance {
                 .createBindGroup(material, material.bindGroup.entries)
 
         }
+    }
+
+    bindComputeResources(compute) {
+        const { buffers, textures, shader } = compute
+
+        compute.shaderModule = this.createShaderModule(shader)
+
+        buffers.forEach(buffer => {
+            if (!buffer.GPUBuffer) {
+                this.createAndWriteBuffer(buffer)
+            }
+            this.createBindGroupLayoutEntries(buffer, compute.bindGroupLayout.entries)
+                .createBindGroupEntries(buffer, compute.bindGroup.entries)
+        })
+
+        textures.forEach(texture => {
+            if (!texture.GPUTexture) {
+                this.createAndWriteTexture(texture)
+            }
+            this.createBindGroupLayoutEntries(texture, compute.bindGroupLayout.entries)
+                .createBindGroupEntries(texture, compute.bindGroup.entries)
+        })
+
+        this.createBindGroupLayout(compute, compute.bindGroupLayout.entries)
+            .createBindGroup(compute, compute.bindGroup.entries)
     }
 }
 
