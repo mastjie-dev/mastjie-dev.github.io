@@ -8,6 +8,7 @@ import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
+import Compute from '../scenes/Compute.js'
 import { PipelineDescriptorBuilder } from '../cores/Builder.js'
 
 const shaderCode = `
@@ -96,28 +97,16 @@ async function main() {
     /**
      *  Compute Stage
      */
-    const computeModule = instance.createShaderModule(computeCode)
-    const st2d = new StorageTexture(256, 256)
-    instance.createAndWriteTexture(st2d)
+    const worleyStorage = new StorageTexture(256, 256)
+    
+    const compute = new Compute()
+    compute.shader = computeCode
+    compute.setWorkgroups(32, 32)
+    compute.addTexture(worleyStorage)
 
-    const computeObject = {
-        bindGroupLayout: new BindGroupLayout(),
-        bindGroup: new BindGroup(),
-        textures: [st2d],
-        pipeline: null,
-        workgroups: [32, 32, 1]
-    }
-
-    instance
-        .createBindGroupLayoutEntries(st2d, computeObject.bindGroupLayout.entries)
-        .createBindGroupLayout(computeObject, computeObject.bindGroupLayout.entries)
-        .createBindGroupEntries(st2d, computeObject.bindGroup.entries)
-        .createBindGroup(computeObject, computeObject.bindGroup.entries)
-
-    const computePipelineLayout = instance
-        .createPipelineLayout(computeObject.bindGroupLayout.GPUBindGroupLayout)
-
-    instance.createComputePipeline(computeObject, computePipelineLayout, computeModule)
+    instance.bindComputeResources(compute)
+    const comPPL = instance.createPipelineLayout(compute.bindGroupLayout.GPUBindGroupLayout)
+    instance.createComputePipeline(compute, comPPL)
 
     /**
      *  Render Stage
@@ -154,12 +143,12 @@ async function main() {
     const encoder = instance.createCommandEncoder()
 
     const computePass = encoder.beginComputePass()
-    computePass.setPipeline(computeObject.pipeline)
-    computePass.setBindGroup(0, computeObject.bindGroup.GPUBindGroup)
-    computePass.dispatchWorkgroups(...computeObject.workgroups)
+    computePass.setPipeline(compute.pipeline)
+    computePass.setBindGroup(0, compute.bindGroup.GPUBindGroup)
+    computePass.dispatchWorkgroups(...compute.workgroups)
     computePass.end()
 
-    instance.copyTextureToTexture(encoder, st2d, worleyTexture)
+    instance.copyTextureToTexture(encoder, worleyStorage, worleyTexture)
 
     renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
 

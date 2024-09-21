@@ -5,6 +5,7 @@ import SamplerCore from '../cores/SamplerCore.js'
 import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
 import VARS from '../cores/VARS.js'
 
+import Compute from '../scenes/Compute.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
@@ -134,29 +135,20 @@ async function main() {
     /**
      *  Compute Stage
      */
+
+    const volumeStorage = new StorageTexture(128, 128, 128, "3d")
+    const compute = new Compute()
+    compute.shader = computeCode
+    compute.setWorkgroups(32, 32, 32)
+    compute.addTexture(volumeStorage)
+    instance.bindComputeResources(compute)
+    const comPPL = instance.createPipelineLayout(compute.bindGroupLayout.GPUBindGroupLayout)
+    instance.createComputePipeline(compute, comPPL)
+
     const computeModule = instance.createShaderModule(computeCode)
 
     const st3d = new StorageTexture(128, 128, 128, "3d")
     instance.createAndWriteTexture(st3d)
-
-    const computeObject = {
-        bindGroupLayout: new BindGroupLayout(),
-        bindGroup: new BindGroup(),
-        textures: [st3d],
-        pipeline: null,
-        workgroups: [32, 32, 32]
-    }
-
-    instance
-        .createBindGroupLayoutEntries(st3d, computeObject.bindGroupLayout.entries)
-        .createBindGroupLayout(computeObject, computeObject.bindGroupLayout.entries)
-        .createBindGroupEntries(st3d, computeObject.bindGroup.entries)
-        .createBindGroup(computeObject, computeObject.bindGroup.entries)
-
-    const computePipelineLayout = instance
-        .createPipelineLayout(computeObject.bindGroupLayout.GPUBindGroupLayout)
-
-    instance.createComputePipeline(computeObject, computePipelineLayout, computeModule)
 
     /**
      *  Render Stage
@@ -203,11 +195,11 @@ async function main() {
     const encoder = instance.createCommandEncoder()
 
     const computePass = encoder.beginComputePass()
-    computePass.setPipeline(computeObject.pipeline)
-    computePass.setBindGroup(0, computeObject.bindGroup.GPUBindGroup)
-    computePass.dispatchWorkgroups(...computeObject.workgroups)
+    computePass.setPipeline(compute.pipeline)
+    computePass.setBindGroup(0, compute.bindGroup.GPUBindGroup)
+    computePass.dispatchWorkgroups(...compute.workgroups)
     computePass.end()
-    instance.copyTextureToTexture(encoder, st3d, worleyTexture)
+    instance.copyTextureToTexture(encoder, volumeStorage, worleyTexture)
     instance.submitEncoder([encoder.finish()])
 
 
@@ -235,7 +227,7 @@ async function main() {
 
         instance.submitEncoder([encoder.finish()])
         
-        // requestAnimationFrame(render)
+        requestAnimationFrame(render)
     }
     render()
 
