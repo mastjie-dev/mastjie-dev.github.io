@@ -113,7 +113,7 @@ function createPlaneInternal(
 function createPlane(horizontal = 1, vertical = 1, widthSegment = 1, heightSegment = 1, face = {}) {
     const {
         position, normal, uv, index
-    } = createPlaneInternal(horizontal, vertical, widthSegment, heightSegment)
+    } = createPlaneInternal(horizontal, vertical, widthSegment, heightSegment, face)
 
     const geometry = new BaseGeometry("plane geometry")
     geometry.addAttributes(new BufferCore(
