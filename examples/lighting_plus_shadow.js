@@ -1,23 +1,24 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import BufferCore from '../cores/BufferCore.js'
-import { DepthTexture } from '../cores/TextureCore.js'
-import VARS from '../cores/VARS.js'
+import { DepthTexture, ExternalImageTexture } from '../cores/TextureCore.js'
+import SamplerCore from '../cores/SamplerCore.js'
 import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
-import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
 import GeometryUtils from '../scenes/GeometryUtils.js'
+import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import { DirectionalLight } from '../scenes/Light.js'
 
 import gui from '../misc/gui.js'
-import { degreeToRadian } from '../misc/utils.js'
+import { degreeToRadian, loadImageBitmap } from '../misc/utils.js'
+import Vector3 from '../math/Vector3.js'
 
 const phongShader = `
 struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) normal: vec3f,
     @location(1) uv: vec2f,
+    @location(2) projPos: vec4f,
 };
 
 struct Camera {
@@ -34,9 +35,12 @@ struct Light {
     position: vec3f,
     color: vec3f,
     strength: f32,
+    projection: mat4x4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> color: vec3f;
+@group(0) @binding(1) var map: texture_2d<f32>;
+@group(0) @binding(2) var mapSampler: sampler;
 @group(1) @binding(0) var<uniform> camera: Camera;
 @group(2) @binding(0) var<uniform> model: Model;
 @group(3) @binding(0) var<uniform> light: Light;
@@ -48,9 +52,15 @@ struct Light {
 ) -> VSOutput
 {
     var output: VSOutput;
-    output.position = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
+    let transform = model.matrix * vec4f(position, 1.);
+    var projectionTransform = light.projection * transform;
+    output.position = camera.projection * camera.view * transform;
     output.normal = (model.normal * vec4f(normal, 0.)).xyz;
     output.uv = uv;
+    output.projPos = vec4f(
+        projectionTransform.xy * vec2f(.5, -.5) + vec2f(.5),
+        projectionTransform.zw
+    );
     return output;
 }
 
@@ -59,50 +69,17 @@ struct Light {
 )
     -> @location(0) vec4f 
 {
+    let uv = input.projPos.xy; 
+    let txr = textureSample(map, mapSampler, uv).rgb;
     let lPos = normalize(light.position);
     let lum = dot(lPos, normalize(input.normal));
 
-    let _col = vec3f(lum);
+    let inRange = uv.x >= 0. && uv.x <= 1. && uv.y >= 0. && uv.y <= 1.;
+    var a = 1.;
+    if (!inRange) { a = 0.; }
+
+    let _col = mix(vec3f(lum), txr, a);
     return vec4f(_col, 1.);
-}
-`
-
-const lineShader = `
-struct VSOutput {
-    @builtin(position) position: vec4f,
-    @location(0) color: vec3f,
-};
-
-struct Camera {
-    projection: mat4x4<f32>,
-    view: mat4x4<f32>,
-};
-
-struct Model {
-    matrix: mat4x4<f32>,
-    normal: mat4x4<f32>,
-};
-
-@group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> camera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
-
-@vertex fn main_vertex(
-    @location(0) position: vec3f,
-) -> VSOutput
-{
-    var output: VSOutput;
-    output.position = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
-    output.color = color;
-    return output;
-}
-
-@fragment fn main_fragment(
-    input: VSOutput,
-)
-    -> @location(0) vec4f 
-{
-    return vec4f(color, 1.);
 }
 `
 
@@ -124,38 +101,44 @@ async function main() {
         format: canvasFormat
     })
 
+    const bitmap = await loadImageBitmap('../public/f-texture.png')
+    const texture = new ExternalImageTexture(bitmap.width, bitmap.height, bitmap)
+
     const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
     mainCamera.position.set(0, -20, -30)
 
     const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
-    const sphereGeo = GeometryUtils.createSphereCube(2, 10)
+    const sphereGeo = GeometryUtils.createSphereCube(5, 10)
     const gridGeo = GeometryUtils.createGrid(100, 2)
+    const planeGeo = GeometryUtils.createPlane(50, 50, 5, 5, { dir: "up" })
+    const boxLineGeo = GeometryUtils.createBoxLine(2, 2, 2)
+    const points = boxLineGeo.attributes[0].data
+    for (let i = 0; i < points.length; i+=3) {
+        points[i+2] = (points[i+2] + 1) / 2
+    }
 
-    const blue = new BufferCore("blue", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform)
-    const white = new BufferCore("white", "uniform", new Float32Array([1, 1, 1]), VARS.Buffer.Uniform)
+    const blueMaterial = MaterialLibs.unlit({ color: new Vector3(0, 1, 0) })
+    blueMaterial.shader = phongShader
+    blueMaterial.addTexture(texture)
+    blueMaterial.addSampler(new SamplerCore())
+    const lineMaterial = MaterialLibs.line({ color: new Vector3(1, 0, 0) })
 
-    const blueMat = new BaseMaterial()
-    blueMat.shader = phongShader
-    blueMat.addBuffer(blue)
+    const box = new Mesh(boxGeo, blueMaterial)
+    const sphere = new Mesh(sphereGeo, blueMaterial)
+    const plane = new Mesh(planeGeo, blueMaterial)
 
-    const whiteLineMat = new BaseMaterial()
-    whiteLineMat.shader = lineShader
-    whiteLineMat.topology = "line-list"
-    whiteLineMat.addBuffer(white)
+    const grid = new Mesh(gridGeo, lineMaterial)
+    const boxLine = new Mesh(boxLineGeo, lineMaterial)
 
-    const box = new Mesh(boxGeo, blueMat)
-    const sphere = new Mesh(sphereGeo, blueMat)
-    const grid = new Mesh(gridGeo, whiteLineMat)
-
-    const meshes = [box, sphere, grid]
+    const meshes = [box, sphere, plane, boxLine]
     box.position.x = 15
+    plane.position.y = 3
 
     instance.bindMeshesResources(meshes)
     instance.bindCamerasResource(mainCamera)
 
     const dLight = new DirectionalLight()
-    dLight.position.set(0, -10, 0)
-    dLight.updateViewSpacePosition(mainCamera)
+    dLight.position.set(-5, -10, -5)
     instance.bindLightsResource(dLight)
 
     const renderObjects = meshes.map(mesh => {
@@ -182,7 +165,6 @@ async function main() {
         return instance.createRenderPipeline(mesh, desc)
     })
 
-
     const rpDesc = RenderPassDescriptorBuilder.start().end()
     rpDesc.colorAttachments[0].clearValue = [.3, .3, .4, 0]
 
@@ -193,6 +175,7 @@ async function main() {
         mainCamera.updateViewMatrix()
 
         dLight.updateViewSpacePosition(mainCamera)
+        dLight.updateProjectionView()
         dLight.updateBuffer()
 
         box.updateMatrixWorld()
@@ -203,11 +186,21 @@ async function main() {
         sphere.updateNormalMatrix(mainCamera)
         sphere.updateBuffer()
 
+        plane.updateMatrixWorld()
+        plane.updateNormalMatrix(mainCamera)
+        plane.updateBuffer()
+
+        boxLine.localMatrix.copy(dLight.projection).inverse()
+        boxLine.updateWorldMatrix()
+        boxLine.updateBuffer()
+
         instance
             .writeBuffer(mainCamera.buffer)
             .writeBuffer(box.buffer)
             .writeBuffer(sphere.buffer)
+            .writeBuffer(plane.buffer)
             .writeBuffer(dLight.buffer)
+            .writeBuffer(boxLine.buffer)
 
         const encoder = instance.createCommandEncoder()
 
@@ -312,9 +305,9 @@ async function main() {
                 {
                     label: "Position X",
                     type: "range",
-                    value: 0,
-                    min: -10,
-                    max: 10,
+                    value: dLight.position.x,
+                    min: -20,
+                    max: 20,
                     step: 1,
                     func(e) {
                         lightControl(Number(e), 1)
@@ -323,9 +316,9 @@ async function main() {
                 {
                     label: "Position Y",
                     type: "range",
-                    value: 0,
-                    min: -10,
-                    max: 10,
+                    value: dLight.position.x,
+                    min: -20,
+                    max: 20,
                     step: 1,
                     func(e) {
                         lightControl(Number(e), 2)
@@ -334,9 +327,9 @@ async function main() {
                 {
                     label: "Position Z",
                     type: "range",
-                    value: 0,
-                    min: -10,
-                    max: 10,
+                    value: dLight.position.x,
+                    min: -20,
+                    max: 20,
                     step: 1,
                     func(e) {
                         lightControl(Number(e), 3)
