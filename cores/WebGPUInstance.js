@@ -341,6 +341,12 @@ class WebGPUInstance {
                     .createBindGroupEntries(l.buffer, l.bindGroup.entries)
                     .createBindGroup(l, l.bindGroup.entries)
             }
+
+            if (l.castShadow) {
+                l.shadowDepthTexture.width = l.shadowMapSize
+                l.shadowDepthTexture.height = l.shadowMapSize
+                this.createTexture(l.shadowDepthTexture)
+            }
         }
     }
 
