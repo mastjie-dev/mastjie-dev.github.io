@@ -1,7 +1,7 @@
 
 class SamplerCore {
-    constructor(name = "sampler", options = {}) {
-        this.name = name
+    constructor(options = {}) {
+        this.name = "sampler"
         this.isSampler = true
         this.GPUSampler = null
         this.visibility = GPUShaderStage.FRAGMENT,
@@ -14,7 +14,7 @@ class SamplerCore {
             magFilter: options.magFilter || "linear",
             minFilter: options.minFilter || "linear",
             mipMapFilter: "linear",
-            compare: undefined
+            compare: options.compare || undefined
         }
     }
 
