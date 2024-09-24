@@ -80,7 +80,7 @@ const RenderPassDescriptorBuilder = {
         this.descriptor.colorAttachments = []
         return this
     },
-    disableStencilAttachment() {
+    disableDepthStencilAttachment() {
         this.descriptor.depthStencilAttachment = undefined
         return this
     },
@@ -88,6 +88,12 @@ const RenderPassDescriptorBuilder = {
         this.descriptor.depthStencilAttachment.depthClearValue = undefined
         this.descriptor.depthStencilAttachment.depthLoadOp = undefined
         this.descriptor.depthStencilAttachment.depthStoreOp = undefined
+        return this
+    },
+    disableStencil() {
+        this.descriptor.depthStencilAttachment.stencilClearValue = undefined
+        this.descriptor.depthStencilAttachment.stencilLoadOp = undefined
+        this.descriptor.depthStencilAttachment.stencilStoreOp = undefined
         return this
     },
     modifyColorAttachment(key, value, index = 0) {
