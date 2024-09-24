@@ -18,7 +18,7 @@ struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) normal: vec3f,
     @location(1) uv: vec2f,
-    @location(2) projPos: vec4f,
+    @location(2) projPos: vec3f,
 };
 
 struct Camera {
@@ -34,13 +34,17 @@ struct Model {
 struct Light {
     position: vec3f,
     color: vec3f,
+    projectionView: mat4x4<f32>,
     strength: f32,
-    projection: mat4x4<f32>,
+    shadowBias: f32,
+    shadowMapSize: f32,
 };
 
 @group(0) @binding(0) var<uniform> color: vec3f;
-@group(0) @binding(1) var map: texture_2d<f32>;
-@group(0) @binding(2) var mapSampler: sampler;
+@group(0) @binding(1) var shadowMap: texture_depth_2d;
+@group(0) @binding(2) var map: texture_2d<f32>;
+@group(0) @binding(3) var shadowMapSampler: sampler_comparison;
+@group(0) @binding(4) var mapSampler: sampler;
 @group(1) @binding(0) var<uniform> camera: Camera;
 @group(2) @binding(0) var<uniform> model: Model;
 @group(3) @binding(0) var<uniform> light: Light;
@@ -53,13 +57,13 @@ struct Light {
 {
     var output: VSOutput;
     let transform = model.matrix * vec4f(position, 1.);
-    var projectionTransform = light.projection * transform;
+    var projectionTransform = light.projectionView * transform;
     output.position = camera.projection * camera.view * transform;
     output.normal = (model.normal * vec4f(normal, 0.)).xyz;
     output.uv = uv;
-    output.projPos = vec4f(
+    output.projPos = vec3f(
         projectionTransform.xy * vec2f(.5, -.5) + vec2f(.5),
-        projectionTransform.zw
+        projectionTransform.z
     );
     return output;
 }
@@ -69,17 +73,52 @@ struct Light {
 )
     -> @location(0) vec4f 
 {
-    let uv = input.projPos.xy; 
-    let txr = textureSample(map, mapSampler, uv).rgb;
+
     let lPos = normalize(light.position);
     let lum = dot(lPos, normalize(input.normal));
 
-    let inRange = uv.x >= 0. && uv.x <= 1. && uv.y >= 0. && uv.y <= 1.;
-    var a = 1.;
-    if (!inRange) { a = 0.; }
+    let uv = input.projPos.xy;
+    let w = input.projPos.z - light.shadowBias;
+    let t = 1. / light.shadowMapSize;
+    var v: f32;
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f(-t, -t), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f( 0, -t), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f( t, -t), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f(-t,  0), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f( 0,  0), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f( t,  0), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f(-t,  t), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f( 0,  t), w);
+    v += textureSampleCompare(shadowMap, shadowMapSampler, uv+vec2f( t,  t), w);
+    v /= 9.;
+    if (uv.x < 0. || uv.x > 1. || uv.y < 0. || uv.y > 1.) { v = 1.; }
 
-    let _col = mix(vec3f(lum), txr, a);
+    let _col = vec3f(v*lum*light.strength);
     return vec4f(_col, 1.);
+}
+`
+
+const shadowShader = `
+struct Model {
+    matrix: mat4x4<f32>,
+    normal: mat4x4<f32>,
+};
+
+struct Light {
+    position: vec3f,
+    color: vec3f,
+    strength: f32,
+    projection: mat4x4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> model: Model;
+@group(1) @binding(0) var<uniform> light: Light;
+
+@vertex fn main_vertex(
+    @location(0) position: vec3f
+) -> @builtin(position) vec4f
+{
+    return light.projection * model.matrix * vec4f(position, 1.);
 }
 `
 
@@ -105,41 +144,71 @@ async function main() {
     const texture = new ExternalImageTexture(bitmap.width, bitmap.height, bitmap)
 
     const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
-    mainCamera.position.set(0, -20, -30)
+    mainCamera.position.set(0, -30, -30)
 
-    const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
+    const dLight = new DirectionalLight()
+    dLight.position.set(0, -20, -5)
+
+    const boxGeo = GeometryUtils.createBox(2, 10, 2, 1, 1, 1)
     const sphereGeo = GeometryUtils.createSphereCube(5, 10)
     const gridGeo = GeometryUtils.createGrid(100, 2)
     const planeGeo = GeometryUtils.createPlane(50, 50, 5, 5, { dir: "up" })
     const boxLineGeo = GeometryUtils.createBoxLine(2, 2, 2)
     const points = boxLineGeo.attributes[0].data
-    for (let i = 0; i < points.length; i+=3) {
-        points[i+2] = (points[i+2] + 1) / 2
+    for (let i = 0; i < points.length; i += 3) {
+        points[i + 2] = (points[i + 2] + 1) / 2
     }
+
+    const compareSampler = new SamplerCore({
+        addressModeU: "clamp-to-edge",
+        addressModeV: "clamp-to-edge",
+        compare: "less",
+    })
+    compareSampler.type = "comparison"
 
     const blueMaterial = MaterialLibs.unlit({ color: new Vector3(0, 1, 0) })
     blueMaterial.shader = phongShader
+    blueMaterial.addTexture(dLight.shadowDepthTexture)
     blueMaterial.addTexture(texture)
-    blueMaterial.addSampler(new SamplerCore())
+    blueMaterial.addSampler(compareSampler)
+    blueMaterial.addSampler(new SamplerCore({
+        addressModeU: "clamp-to-edge",
+        addressModeV: "clamp-to-edge",
+    }))
     const lineMaterial = MaterialLibs.line({ color: new Vector3(1, 0, 0) })
 
     const box = new Mesh(boxGeo, blueMaterial)
     const sphere = new Mesh(sphereGeo, blueMaterial)
     const plane = new Mesh(planeGeo, blueMaterial)
 
-    const grid = new Mesh(gridGeo, lineMaterial)
     const boxLine = new Mesh(boxLineGeo, lineMaterial)
 
     const meshes = [box, sphere, plane, boxLine]
-    box.position.x = 15
+    const shadowMeshes = [box, sphere, plane]
+    box.position.x = 10
     plane.position.y = 3
 
-    instance.bindMeshesResources(meshes)
     instance.bindCamerasResource(mainCamera)
-
-    const dLight = new DirectionalLight()
-    dLight.position.set(-5, -10, -5)
     instance.bindLightsResource(dLight)
+    instance.bindMeshesResources(meshes)
+
+    const shadowModule = instance.createShaderModule(shadowShader)
+    const shadowObjects = shadowMeshes.map(mesh => {
+        const pl = instance.createPipelineLayout(
+            mesh.bindGroupLayout.GPUBindGroupLayout,
+            dLight.bindGroupLayout.GPUBindGroupLayout
+        )
+
+        const desc = PipelineDescriptorBuilder
+            .start()
+            .layout(pl)
+            .vertex(shadowModule, mesh.geometry.vertexBufferLayout)
+            .depthStencil(true, "depth32float", "less")
+            .primitive(mesh.material.cullMode, mesh.material.topology)
+            .end()
+        
+        return instance.createRenderPipeline(mesh, desc)
+    })
 
     const renderObjects = meshes.map(mesh => {
         const pl = instance.createPipelineLayout(
@@ -164,6 +233,11 @@ async function main() {
 
         return instance.createRenderPipeline(mesh, desc)
     })
+
+    const shadowDesc = RenderPassDescriptorBuilder
+        .start().disableColorAttachment().disableStencil().end()
+    shadowDesc.depthStencilAttachment.view = dLight.shadowDepthTexture.GPUTexture.createView()
+
 
     const rpDesc = RenderPassDescriptorBuilder.start().end()
     rpDesc.colorAttachments[0].clearValue = [.3, .3, .4, 0]
@@ -190,7 +264,7 @@ async function main() {
         plane.updateNormalMatrix(mainCamera)
         plane.updateBuffer()
 
-        boxLine.localMatrix.copy(dLight.projection).inverse()
+        boxLine.localMatrix.copy(dLight.projectionView).inverse()
         boxLine.updateWorldMatrix()
         boxLine.updateBuffer()
 
@@ -204,28 +278,49 @@ async function main() {
 
         const encoder = instance.createCommandEncoder()
 
-        rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
-        rpDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
-        const pass = encoder.beginRenderPass(rpDesc)
+        // shadow pass
+        const shadowPass = encoder.beginRenderPass(shadowDesc)
 
-        for (let rObj of renderObjects) {
-            pass.setPipeline(rObj.pipeline)
+        for (let sObj of shadowObjects) {
+            shadowPass.setPipeline(sObj.pipeline)
 
             let i = 0
-            for (let attr of rObj.mesh.geometry.attributes) {
-                pass.setVertexBuffer(i, attr.GPUBuffer)
+            for (let attr of sObj.mesh.geometry.attributes) {
+                shadowPass.setVertexBuffer(i, attr.GPUBuffer)
                 ++i
             }
 
-            pass.setBindGroup(0, rObj.mesh.material.bindGroup.GPUBindGroup)
-            pass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
-            pass.setBindGroup(2, rObj.mesh.bindGroup.GPUBindGroup)
-            pass.setBindGroup(3, dLight.bindGroup.GPUBindGroup)
-            pass.setIndexBuffer(rObj.mesh.geometry.index.GPUBuffer,
-                rObj.mesh.geometry.index.format)
-            pass.drawIndexed(rObj.mesh.geometry.index.length)
+            shadowPass.setBindGroup(0, sObj.mesh.bindGroup.GPUBindGroup)
+            shadowPass.setBindGroup(1, dLight.bindGroup.GPUBindGroup)
+            shadowPass.setIndexBuffer(sObj.mesh.geometry.index.GPUBuffer,
+                sObj.mesh.geometry.index.format)
+            shadowPass.drawIndexed(sObj.mesh.geometry.index.length)
         }
-        pass.end()
+        shadowPass.end()
+
+        // main pass
+        rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
+        rpDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
+        const mainPass = encoder.beginRenderPass(rpDesc)
+
+        for (let rObj of renderObjects) {
+            mainPass.setPipeline(rObj.pipeline)
+
+            let i = 0
+            for (let attr of rObj.mesh.geometry.attributes) {
+                mainPass.setVertexBuffer(i, attr.GPUBuffer)
+                ++i
+            }
+
+            mainPass.setBindGroup(0, rObj.mesh.material.bindGroup.GPUBindGroup)
+            mainPass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
+            mainPass.setBindGroup(2, rObj.mesh.bindGroup.GPUBindGroup)
+            mainPass.setBindGroup(3, dLight.bindGroup.GPUBindGroup)
+            mainPass.setIndexBuffer(rObj.mesh.geometry.index.GPUBuffer,
+                rObj.mesh.geometry.index.format)
+            mainPass.drawIndexed(rObj.mesh.geometry.index.length)
+        }
+        mainPass.end()
 
         instance.submitEncoder([encoder.finish()])
         // requestAnimationFrame(render)
@@ -279,6 +374,19 @@ async function main() {
         render()
     }
 
+    const sphereControl = (v, p) => {
+        if (p === 1) {
+            sphere.position.x = v
+        }
+        else if (p === 2) {
+            sphere.position.y = v
+        }
+        else if (p === 3) {
+            sphere.position.z = v
+        }
+        render()
+    }
+
     let prev = 0
     const params = [
         {
@@ -316,7 +424,7 @@ async function main() {
                 {
                     label: "Position Y",
                     type: "range",
-                    value: dLight.position.x,
+                    value: dLight.position.y,
                     min: -20,
                     max: 20,
                     step: 1,
@@ -327,12 +435,50 @@ async function main() {
                 {
                     label: "Position Z",
                     type: "range",
-                    value: dLight.position.x,
+                    value: dLight.position.z,
                     min: -20,
                     max: 20,
                     step: 1,
                     func(e) {
                         lightControl(Number(e), 3)
+                    }
+                }
+            ]
+        },
+        {
+            label: "Sphere",
+            fields: [
+                {
+                    label: "Position X",
+                    type: "range",
+                    value: sphere.position.x,
+                    min: -20,
+                    max: 20,
+                    step: 1,
+                    func(e) {
+                        sphereControl(Number(e), 1)
+                    }
+                },
+                {
+                    label: "Position Y",
+                    type: "range",
+                    value: sphere.position.x,
+                    min: -20,
+                    max: 20,
+                    step: 1,
+                    func(e) {
+                        sphereControl(Number(e), 2)
+                    }
+                },
+                {
+                    label: "Position Z",
+                    type: "range",
+                    value: sphere.position.x,
+                    min: -20,
+                    max: 20,
+                    step: 1,
+                    func(e) {
+                        sphereControl(Number(e), 3)
                     }
                 }
             ]
