@@ -2,7 +2,7 @@
 import NodeCore from './NodeCore.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
-import BufferCore from '../cores/BufferCore.js'
+import {UniformBuffer} from '../cores/BufferCore.js'
 import VARS from '../cores/VARS.js'
 import Matrix4 from '../math/Matrix4.js'
 
@@ -14,7 +14,7 @@ class Mesh extends NodeCore {
         this.material = material
 
         this.normalMatrix = new Matrix4()
-        this.buffer = new BufferCore("mesh", "uniform", new Float32Array(32), VARS.Buffer.Uniform)
+        this.buffer = new UniformBuffer(new Float32Array(32))
 
         this.bindGroup = new BindGroup()
         this.bindGroupLayout = new BindGroupLayout

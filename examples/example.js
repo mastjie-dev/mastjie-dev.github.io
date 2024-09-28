@@ -3,7 +3,7 @@ import { DepthTexture} from '../cores/TextureCore.js'
 import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
 import Mesh from '../scenes/Mesh.js'
-import GeometryUtils from '../scenes/GeometryUtils.js'
+import GeometryUtils from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import Vector3 from '../math/Vector3.js'

@@ -3,8 +3,7 @@ import BindGroupLayout from "../cores/BindGroupLayout.js"
 import Matrix4 from "../math/Matrix4.js"
 import Vector3 from "../math/Vector3.js"
 import NodeCore from './NodeCore.js'
-import BufferCore from "../cores/BufferCore.js"
-import VARS from "../cores/VARS.js"
+import {UniformBuffer} from "../cores/BufferCore.js"
 
 class Camera extends NodeCore {
     constructor(name) {
@@ -16,7 +15,7 @@ class Camera extends NodeCore {
 
         this.projectionMatrix = new Matrix4()
         this.viewMatrix = new Matrix4()
-        this.buffer = new BufferCore("camera", "uniform", new Float32Array(32), VARS.Buffer.Uniform)
+        this.buffer = new UniformBuffer(new Float32Array(32))
 
         this.bindGroup = new BindGroup()
         this.bindGroupLayout = new BindGroupLayout()
