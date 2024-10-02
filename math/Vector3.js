@@ -12,6 +12,13 @@ class Vector3 {
         this.z = z
         return this
     }
+    
+    setUniform(v) {
+        this.x = v
+        this.y = v
+        this.z = v
+        return this
+    }
 
     toArray() {
         return [this.x, this.y, this.z]
