@@ -104,7 +104,7 @@ function createPlaneInternal(
         position: new Float32Array(position),
         normal: new Float32Array(normal),
         uv: new Float32Array(uv),
-        index: new Uint16Array(index)
+        index: new Uint32Array(index)
     }
 }
 
@@ -202,8 +202,8 @@ function createSphereCube(radius = 1, segment = 2) {
     const geometry = new BaseGeometry("spherecube geometry")
     geometry.addAttributes(new VertexBuffer("position", new Float32Array(position)))
     geometry.addAttributes(new VertexBuffer("normal", new Float32Array(normal)))
-    geometry.addAttributes(new VertexBuffer("uv", new Float32Array(uv)))
-    geometry.addIndex(new IndexBuffer(new Uint16Array(index)))
+    geometry.addAttributes(new VertexBuffer("uv", new Float32Array(uv), "float32x2"))
+    geometry.addIndex(new IndexBuffer(new Uint32Array(index)))
 
     return geometry
 }
@@ -271,7 +271,7 @@ function createAxis(scale = 1) {
         0, 1, 0, 0, 1, 0,
         1, 0, 0, 1, 0, 0
     ])
-    const index = new Uint16Array([0, 1, 2, 3, 4, 5])
+    const index = new Uint32Array([0, 1, 2, 3, 4, 5])
 
     const geometry = new BaseGeometry("axis geometry")
     geometry.addAttributes(new VertexBuffer("position", position))
