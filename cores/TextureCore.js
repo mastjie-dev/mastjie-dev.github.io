@@ -20,6 +20,7 @@ class TextureCore {
         this.sampleType = "float"
         this.isMultisampled = false
         this.access = null
+        this.isWriteable = true
     }
 
     setGPUTexture(texture) {
@@ -74,6 +75,7 @@ class DepthTexture extends TextureCore {
         this.usage = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
         this.visibility = GPUShaderStage.FRAGMENT
         this.sampleType = "depth"
+        this.isWriteable = false
     }
 }
 
