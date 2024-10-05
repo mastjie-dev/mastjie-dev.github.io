@@ -3,7 +3,6 @@ import NodeCore from './NodeCore.js'
 import BindGroup from '../cores/BindGroup.js'
 import BindGroupLayout from '../cores/BindGroupLayout.js'
 import {UniformBuffer} from '../cores/BufferCore.js'
-import VARS from '../cores/VARS.js'
 import Matrix4 from '../math/Matrix4.js'
 
 class Mesh extends NodeCore {
