@@ -1,5 +1,4 @@
-
-
+import { PipelineDescriptorBuilder } from "./Builder.js"
 
 class WebGPUInstance {
     constructor() {
@@ -24,13 +23,6 @@ class WebGPUInstance {
         })
     }
 
-    loop(arrays, callback, params) {
-        for (let arr of arrays) {
-            callback(arr, params)
-        }
-        return this
-    }
-
     createShaderModule(code, label = "") {
         return this.device.createShaderModule({ label, code })
     }
@@ -51,12 +43,6 @@ class WebGPUInstance {
         return this
     }
 
-    createAndWriteBuffer(bufferCore) {
-        this.createBuffer(bufferCore)
-        this.writeBuffer(bufferCore)
-        return this
-    }
-
     createTexture(textureCore) {
         const texture = this.device.createTexture({
             label: textureCore.name,
@@ -70,6 +56,10 @@ class WebGPUInstance {
     }
 
     writeTexture(textureCore) {
+        if (!textureCore.isWriteable) {
+            return this
+        }
+
         if (textureCore.isExternalTexture || textureCore.isCubeTexture) {
             this.writeExternalTexture(textureCore)
             return this
@@ -95,7 +85,6 @@ class WebGPUInstance {
 
     writeExternalTexture(textureCore) {
         const data = Array.isArray(textureCore.data) ? textureCore.data : [textureCore.data]
-
         data.forEach((d, l) => {
             this.device.queue.copyExternalImageToTexture(
                 {
@@ -112,12 +101,6 @@ class WebGPUInstance {
                 }
             )
         })
-    }
-
-    createAndWriteTexture(textureCore) {
-        this.createTexture(textureCore)
-        this.writeTexture(textureCore)
-        return this
     }
 
     createSampler(samplerCore) {
@@ -138,7 +121,8 @@ class WebGPUInstance {
         return this
     }
 
-    createBindGroupLayoutEntries(resource, entries) {
+    createBindGroupLayoutEntries(resource, owner) {
+        const entries = owner.bindGroupLayout.entries
         let binding = entries.length
 
         if (resource.isBuffer) {
@@ -187,7 +171,8 @@ class WebGPUInstance {
         return this
     }
 
-    createBindGroupEntries(resource, entries) {
+    createBindGroupEntries(resource, owner) {
+        const entries = owner.bindGroup.entries
         let binding = entries.length
 
         if (resource.isBuffer) {
@@ -217,7 +202,8 @@ class WebGPUInstance {
         return this
     }
 
-    createBindGroupLayout(owner, entries) {
+    createBindGroupLayout(owner) {
+        const entries = owner.bindGroupLayout.entries
         const bgl = this.device.createBindGroupLayout({
             label: owner.name,
             entries,
@@ -226,7 +212,8 @@ class WebGPUInstance {
         return this
     }
 
-    createBindGroup(owner, entries) {
+    createBindGroup(owner) {
+        const entries = owner.bindGroup.entries
         const bg = this.device.createBindGroup({
             label: owner.name,
             layout: owner.bindGroupLayout.GPUBindGroupLayout,
@@ -255,18 +242,19 @@ class WebGPUInstance {
         return this
     }
 
-    createPipelineLayout(...bindGroupLayouts) {
+    createPipelineLayout(...owners) {
+        const bindGroupLayouts = owners.map(ow => ow.bindGroupLayout.GPUBindGroupLayout)
         return this.device.createPipelineLayout({
             bindGroupLayouts
         })
     }
 
-    createRenderPipeline(mesh, pipelineDescriptor) {
-        const pipeline = this.device.createRenderPipeline(pipelineDescriptor)
-        return {
-            mesh,
-            pipeline
-        }
+    createRenderPipeline(pipelineCore) {
+        const pipelineLayout = this.createPipelineLayout(
+            ...pipelineCore.getBindGroupLayouts())
+
+        const pipelineDescriptor = pipelineCore.getPipelineDescriptor(pipelineLayout)
+        pipelineCore.instance = this.device.createRenderPipeline(pipelineDescriptor)
     }
 
     createComputePipeline(compute, pipelineLayout) {
@@ -283,10 +271,6 @@ class WebGPUInstance {
 
     submitEncoder(finish) {
         this.device.queue.submit(finish)
-    }
-
-    custom(callback) {
-        callback(this.device)
     }
 
     copyTextureToTexture(encoder, source, destination) {
@@ -311,132 +295,129 @@ class WebGPUInstance {
         )
     }
 
-    bindCamerasResource(cameras) {
-        const _cams = Array.isArray(cameras) ? cameras : [cameras]
-
-        for (let c of _cams) {
-            if (!c.GPUBuffer) {
-                c.updateProjectionMatrix()
-                c.updateViewMatrix()
-                this
-                    .createAndWriteBuffer(c.buffer)
-                    .createBindGroupLayoutEntries(c.buffer, c.bindGroupLayout.entries)
-                    .createBindGroupLayout(c, c.bindGroupLayout.entries)
-                    .createBindGroupEntries(c.buffer, c.bindGroup.entries)
-                    .createBindGroup(c, c.bindGroup.entries)
-            }
-        }
-    }
-
-    bindLightsResource(lights) {
-        const _lights = Array.isArray(lights) ? lights : [lights]
-
-        for (let l of _lights) {
-            l.updateBuffer()
-            if (!l.GPUBuffer) {
-                this
-                    .createAndWriteBuffer(l.buffer)
-                    .createBindGroupLayoutEntries(l.buffer, l.bindGroupLayout.entries)
-                    .createBindGroupLayout(l, l.bindGroupLayout.entries)
-                    .createBindGroupEntries(l.buffer, l.bindGroup.entries)
-                    .createBindGroup(l, l.bindGroup.entries)
-            }
-
-            if (l.castShadow) {
-                l.shadowDepthTexture.width = l.shadowMapSize
-                l.shadowDepthTexture.height = l.shadowMapSize
-                this.createTexture(l.shadowDepthTexture)
-            }
-        }
-    }
-
-    bindMeshesResources(meshes) {
-        const _meshes = Array.isArray(meshes) ? meshes : [meshes]
-
-        for (let mesh of _meshes) {
-            if (mesh.isMesh) {
-                mesh.updateMatrixWorld()
-                mesh.updateBuffer()
-            }
-
-            if (!mesh.GPUBuffer) {
-                this.createAndWriteBuffer(mesh.buffer)
-                    .createBindGroupLayoutEntries(mesh.buffer, mesh.bindGroupLayout.entries)
-                    .createBindGroupLayout(mesh, mesh.bindGroupLayout.entries)
-                    .createBindGroupEntries(mesh.buffer, mesh.bindGroup.entries)
-                    .createBindGroup(mesh, mesh.bindGroup.entries)
-            }
-
-            const { geometry, material } = mesh
-
-            if (!geometry.vertexBufferLayout) {
-                geometry.attributes.forEach(attribute => {
-                    this.createAndWriteBuffer(attribute)
-                })
-                this.createAndWriteBuffer(geometry.index)
-                    .createVertexBufferLayout(geometry)
-            }
-
-            if (!material.shaderModule) {
-                material.shaderModule = this.createShaderModule(material.shader)
-            }
-
-            const { buffers, textures, samplers } = material
-
-            buffers.forEach(buffer => {
-                if (!buffer.GPUBuffer) {
-                    this.createAndWriteBuffer(buffer)
-                }
-                this.createBindGroupLayoutEntries(buffer, material.bindGroupLayout.entries)
-                    .createBindGroupEntries(buffer, material.bindGroup.entries)
-            })
-
-            textures.forEach(texture => {
-                if (!texture.GPUTexture) {
-                    this.createAndWriteTexture(texture)
-                }
-                this.createBindGroupLayoutEntries(texture, material.bindGroupLayout.entries)
-                    .createBindGroupEntries(texture, material.bindGroup.entries)
-            })
-
-            samplers.forEach(sampler => {
-                if (!this.GPUSampler) {
-                    this.createSampler(sampler)
-                }
-
-                this.createBindGroupLayoutEntries(sampler, material.bindGroupLayout.entries)
-                    .createBindGroupEntries(sampler, material.bindGroup.entries)
-            })
-
-            this.createBindGroupLayout(material, material.bindGroupLayout.entries)
-                .createBindGroup(material, material.bindGroup.entries)
-
-        }
-    }
-
     bindComputeResources(compute) {
         const { buffers, textures, shader } = compute
 
         compute.shaderModule = this.createShaderModule(shader)
 
         buffers.forEach(buffer => {
-            if (!buffer.GPUBuffer) {
-                this.createAndWriteBuffer(buffer)
-            }
-            this.createBindGroupLayoutEntries(buffer, compute.bindGroupLayout.entries)
+            this.createAndWriteBuffer(buffer)
+                .createBindGroupLayoutEntries(buffer, compute.bindGroupLayout.entries)
                 .createBindGroupEntries(buffer, compute.bindGroup.entries)
         })
 
         textures.forEach(texture => {
-            if (!texture.GPUTexture) {
-                this.createAndWriteTexture(texture)
-            }
-            this.createBindGroupLayoutEntries(texture, compute.bindGroupLayout.entries)
+            this.createAndWriteTexture(texture)
+                .createBindGroupLayoutEntries(texture, compute.bindGroupLayout.entries)
                 .createBindGroupEntries(texture, compute.bindGroup.entries)
         })
 
         this.createBindGroupLayout(compute, compute.bindGroupLayout.entries)
             .createBindGroup(compute, compute.bindGroup.entries)
+    }
+
+    bindMesh(...meshes) {
+        meshes.forEach(mesh => {
+            if (!mesh.isBind) {
+                mesh.updateMatrixWorld()
+                mesh.updateBuffer()
+
+                this.createBuffer(mesh.buffer)
+                    .writeBuffer(mesh.buffer)
+                    .createBindGroupLayoutEntries(mesh.buffer, mesh)
+                    .createBindGroupEntries(mesh.buffer, mesh)
+                    .createBindGroupLayout(mesh)
+                    .createBindGroup(mesh)
+                mesh.isBind = true
+
+                if (!mesh.geometry.isBind) {
+                    const geometry = mesh.geometry
+                    geometry.createVertexBufferLayout()
+                    const buffers = [...geometry.attributes, geometry.index]
+                    for (let buffer of buffers) {
+                        this.createBuffer(buffer).writeBuffer(buffer)
+                    }
+                    geometry.isBind = true
+                }
+
+                if (!mesh.material.isBind) {
+                    const material = mesh.material
+
+                    const buffers = material.buffers
+                    for (let buffer of buffers) {
+                        if (!buffer.GPUBuffer) {
+                            this.createBuffer(buffer)
+                                .writeBuffer(buffer)
+                                .createBindGroupLayoutEntries(buffer, material)
+                                .createBindGroupEntries(buffer, material)
+                        }
+                    }
+
+                    const textures = material.textures
+                    for (let texture of textures) {
+                        if (!texture.GPUBuffer) {
+                            this.createTexture(texture)
+                                .writeTexture(texture)
+                                .createBindGroupLayoutEntries(texture, material)
+                                .createBindGroupEntries(texture, material)
+                        }
+                    }
+
+                    const samplers = material.samplers
+                    for (let sampler of samplers) {
+                        if (!sampler.GPUSampler) {
+                            this.createSampler(sampler)
+                                .createBindGroupLayoutEntries(sampler, material)
+                                .createBindGroupEntries(sampler, material)
+                        }
+                    }
+
+                    this.createBindGroupLayout(material).createBindGroup(material)
+                    material.shaderModule = this.createShaderModule(material.shader)
+                    material.isBind = true
+                }
+            }
+        })
+    }
+
+    bindCamera(...cameras) {
+        cameras.forEach(camera => {
+            if (!camera.isBind) {
+                camera.updateProjectionMatrix()
+                camera.updateViewMatrix()
+                camera.isBind = true
+
+                this.createBuffer(camera.buffer)
+                    .writeBuffer(camera.buffer)
+                    .createBindGroupLayoutEntries(camera.buffer, camera)
+                    .createBindGroupEntries(camera.buffer, camera)
+                    .createBindGroupLayout(camera)
+                    .createBindGroup(camera)
+            }
+        })
+    }
+
+    bindLightGroup(...lightGroups) {
+        lightGroups.forEach(lightGroup => {
+            if (!lightGroup.isBind) {
+                lightGroup.lights.forEach(light => {
+
+                    if (!light.isBind) {
+                        light.updateBuffer()
+                        light.isBind = true
+
+                        this.createBuffer(light.buffer)
+                            .writeBuffer(light.buffer)
+                            .createBindGroupLayoutEntries(light.buffer, lightGroup)
+                            .createBindGroupEntries(light.buffer, lightGroup)
+                    }
+                })
+
+                this.createBindGroupLayout(lightGroup)
+                    .createBindGroup(lightGroup)
+                lightGroup.isBind = true
+            }
+        })
     }
 }
 
