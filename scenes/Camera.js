@@ -9,6 +9,7 @@ class Camera extends NodeCore {
     constructor(name) {
         super(name)
         this.isCamera = true
+        this.isBind = false
 
         this.target = new Vector3()
         this.up = new Vector3(0, 1, 0)
