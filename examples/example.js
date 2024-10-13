@@ -1,9 +1,10 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import { DepthTexture} from '../cores/TextureCore.js'
-import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
+import { DepthTexture } from '../cores/TextureCore.js'
+import PipelineCore from '../cores/PipelineCore.js'
+import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
 import Mesh from '../scenes/Mesh.js'
-import GeometryUtils from '../scenes/GeometryLibs.js'
+import GeometryLibs from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import Vector3 from '../math/Vector3.js'
@@ -26,11 +27,11 @@ async function main() {
         format: canvasFormat
     })
 
-    const mainCamera = new PerspectiveCamera(50, width/height, .1, 1000)
+    const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
     mainCamera.position.set(5, -10, -20)
 
-    const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
-    const gridGeo = GeometryUtils.createGrid(100, 5)
+    const boxGeo = GeometryLibs.createBox(2, 2, 2, 1, 1, 1)
+    const gridGeo = GeometryLibs.createGrid(100, 5)
 
     const unlitMaterial = MaterialLibs.unlit({ color: new Vector3(0, 0, 1) })
     const lineMaterial = MaterialLibs.line()
@@ -38,70 +39,75 @@ async function main() {
     const box = new Mesh(boxGeo, unlitMaterial)
     const grid = new Mesh(gridGeo, lineMaterial)
 
-    const meshes = [box, grid]
+    const pipelineA = new PipelineCore("pipeline A")
+    pipelineA.setCamera(mainCamera)
+    pipelineA.addMesh(box)
 
-    instance.bindMeshesResources(meshes)
-    instance.bindCamerasResource(mainCamera)
+    const pipelineB = new PipelineCore("pipeline B")
+    pipelineB.setCamera(mainCamera)
+    pipelineB.addMesh(grid)
 
-    const renderObjects = meshes.map(mesh => {
-        const pl = instance.createPipelineLayout(
-            mesh.material.bindGroupLayout.GPUBindGroupLayout,
-            mainCamera.bindGroupLayout.GPUBindGroupLayout,
-            mesh.bindGroupLayout.GPUBindGroupLayout,
-        )
+    instance.bindCamera(mainCamera)
+    instance.bindMesh(box, grid)
+    instance.createRenderPipeline(pipelineA)
+    instance.createRenderPipeline(pipelineB)
 
-        const desc = PipelineDescriptorBuilder
-            .start()
-            .layout(pl)
-            .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
-            .fragment(mesh.material.shaderModule, canvasFormat)
-            .depthStencil(
-                mesh.material.depthWriteEnabled,
-                mesh.material.depthFormat,
-                mesh.material.depthCompare
-            )
-            .primitive(mesh.material.cullMode, mesh.material.topology)
-            .end()
-
-        return instance.createRenderPipeline(mesh, desc)
-    })
-
-
-    const rpDesc = RenderPassDescriptorBuilder.start().end()
-    rpDesc.colorAttachments[0].clearValue = [.4, .4, .4, 0]
-
+    const rpd = RenderPassDescriptorBuilder.start().end()
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
 
     const render = () => {
         const encoder = instance.createCommandEncoder()
 
-        rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
-        rpDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
-        const pass = encoder.beginRenderPass(rpDesc)
+        rpd.colorAttachments[0].view = context.getCurrentTexture().createView()
+        rpd.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
 
-        for (let rObj of renderObjects) {
-            pass.setPipeline(rObj.pipeline)
-            
+        const _pass = encoder.beginRenderPass(rpd)
+
+        _pass.setPipeline(pipelineA.instance)
+        _pass.setBindGroup(0, unlitMaterial.bindGroup.GPUBindGroup)
+        _pass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
+
+        for (let r of pipelineA.primitives) {
             let i = 0
-            for (let attr of rObj.mesh.geometry.attributes) {
-                pass.setVertexBuffer(i, attr.GPUBuffer)
+            for (let a of r.geometry.attributes) {
+                _pass.setVertexBuffer(i, a.GPUBuffer)
+                ++i
+            }
+            _pass.setIndexBuffer(r.geometry.index.GPUBuffer,
+                r.geometry.index.format)
+
+            for (let q of r.meshes) {
+                _pass.setBindGroup(2, q.bindGroup.GPUBindGroup)
+                _pass.drawIndexed(r.geometry.index.length)
+            }
+        }
+
+        _pass.setPipeline(pipelineB.instance)
+        _pass.setBindGroup(0, lineMaterial.bindGroup.GPUBindGroup)
+        for (let l of pipelineB.primitives) {
+            let i = 0
+            for (let a of l.geometry.attributes) {
+                _pass.setVertexBuffer(i, a.GPUBuffer)
                 ++i
             }
 
-            pass.setBindGroup(0, rObj.mesh.material.bindGroup.GPUBindGroup)
-            pass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
-            pass.setBindGroup(2, rObj.mesh.bindGroup.GPUBindGroup)
-            pass.setIndexBuffer(rObj.mesh.geometry.index.GPUBuffer,
-                rObj.mesh.geometry.index.format)
-            pass.drawIndexed(rObj.mesh.geometry.index.length)
+            _pass.setIndexBuffer(l.geometry.index.GPUBuffer,
+                l.geometry.index.format)
+
+            for (let m of l.meshes) {
+                _pass.setBindGroup(2, m.bindGroup.GPUBindGroup)
+                _pass.drawIndexed(l.geometry.index.length)
+            }            
         }
-        pass.end()
+
+        _pass.end()
 
         instance.submitEncoder([encoder.finish()])
         // requestAnimationFrame(render)
     }
     render()
+    document.body.appendChild(canvas)
 
     document.body.appendChild(canvas)
 
