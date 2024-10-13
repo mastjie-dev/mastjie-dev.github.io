@@ -9,6 +9,7 @@ class Mesh extends NodeCore {
     constructor(geometry, material, name="") {
         super(name)
         this.isMesh = true
+        this.isBind = false
         this.geometry = geometry
         this.material = material
 
