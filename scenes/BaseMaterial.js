@@ -5,6 +5,8 @@ class BaseMaterial {
     constructor(name) {
         this.name = name
         this.isMaterial = true
+        this.isBind = false
+        this.uuid = crypto.randomUUID()
         
         this.buffers = []
         this.textures = []
