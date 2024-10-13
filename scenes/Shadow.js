@@ -1,50 +1,31 @@
 import Vector3 from "../math/Vector3.js"
 import Matrix4 from "../math/Matrix4.js"
-import BufferCore from "../cores/BufferCore.js"
-import VARS from "../cores/VARS"
-import BindGroup from "../cores/BindGroup.js"
-import BindGroupLayout from "../cores/BindGroupLayout.js"
+import { DepthTexture } from "../cores/TextureCore.js"
 
 class DirectionalShadow {
-    constructor(left, right, bottom, top, near, far, position) {
-        this.left = left
-        this.right = right
-        this.bottom = bottom
-        this.top = top
-        this.near = near
-        this.far = far
+    constructor() {
+        this.dimension = 20
+        this.near = 1
+        this.far = 100
+        this.mapSize = 1024
+        this.bias = .007
+        this.depthTexture = new DepthTexture(this.mapSize, this.mapSize)
+        this.depthTexture.format = "depth32float"
         
-        this.position = new Vector3().copy(position)
+        this.position = new Vector3()
         this.target = new Vector3()
 
-
-        this.projectionMatrix = new Matrix4()
-        this.viewMatrix = new Matrix4()
-
-        this.buffer = new BufferCore(
-            "directionalShadow", "uniform", new Float32Array(36), VARS.Buffer.Uniform)
-
-        this.bindGroup = new BindGroup()
-        this.bindGroupLayout = new BindGroupLayout()
-
-        this.updateProjectionMatrix()
-        this.updateViewMatrix()
+        this.projectionViewMatrix = new Matrix4()
     }
 
-    updateProjectionMatrix() {
-        this.projectionMatrix
-            .orthographic(this.left, this.right, this.bottom, this.top, this.near, this.far)
-        this.buffer.data.set(this.projectionMatrix.elements)
-    }
+    updateProjectionViewMatrix() {
+        const v = new Matrix4()
+        v.lookAt(this.position, this.target, new Vector3(0, 1, 0))
 
-    updateViewMatrix() {
-        const up = new Vector3(0, -1, 0)
-        this.viewMatrix.lookAt(this.position, this.target, up)
-        this.buffer.data.set(this.viewMatrix.elements, 16)
-
-        const position = this.position.toArray()
-        position.push(0)
-        this.buffer.data.set(position, 32)
+        const h = this.dimension / 2
+        this.projectionViewMatrix.clear()
+        this.projectionViewMatrix.orthographic(-h, h, h, -h, this.near, this.far)
+        this.projectionViewMatrix.multiply(v)
     }
 }
 
