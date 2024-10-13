@@ -3,7 +3,9 @@ class BaseGeometry {
     constructor(name) {
         this.name = name
         this.isGeometry = true
-        
+        this.isBind = false
+        this.uuid = crypto.randomUUID()
+
         this.attributes = []
         this.index = null
         this.vertexBufferLayout = null
@@ -19,6 +21,19 @@ class BaseGeometry {
 
     setVertexBufferLayout(vertexBufferLayout) {
         this.vertexBufferLayout = vertexBufferLayout
+    }
+
+    createVertexBufferLayout() {
+        this.vertexBufferLayout = this.attributes.map((a, i) => {
+            return {
+                arrayStride: a.arrayStride,
+                attributes: [{
+                    format: a.format,
+                    offset: a.offset,
+                    shaderLocation: i
+                }]
+            }
+        })
     }
 }
 
