@@ -1,4 +1,4 @@
-import { PipelineDescriptorBuilder } from "./Builder.js"
+import PipelineCore from "./PipelineCore.js"
 
 class WebGPUInstance {
     constructor() {
@@ -316,85 +316,88 @@ class WebGPUInstance {
             .createBindGroup(compute, compute.bindGroup.entries)
     }
 
-    bindMesh(...meshes) {
-        meshes.forEach(mesh => {
-            if (!mesh.isBind) {
-                mesh.updateMatrixWorld()
-                mesh.updateBuffer()
+    bindMesh(mesh) {
+        mesh.updateMatrixWorld()
 
-                this.createBuffer(mesh.buffer)
-                    .writeBuffer(mesh.buffer)
-                    .createBindGroupLayoutEntries(mesh.buffer, mesh)
-                    .createBindGroupEntries(mesh.buffer, mesh)
-                    .createBindGroupLayout(mesh)
-                    .createBindGroup(mesh)
-                mesh.isBind = true
+        if (mesh.isMesh && !mesh.isBind) {
+            mesh.updateBuffer()
 
-                if (!mesh.geometry.isBind) {
-                    const geometry = mesh.geometry
-                    geometry.createVertexBufferLayout()
-                    const buffers = [...geometry.attributes, geometry.index]
-                    for (let buffer of buffers) {
-                        this.createBuffer(buffer).writeBuffer(buffer)
-                    }
-                    geometry.isBind = true
+            this.createBuffer(mesh.buffer)
+                .writeBuffer(mesh.buffer)
+                .createBindGroupLayoutEntries(mesh.buffer, mesh)
+                .createBindGroupEntries(mesh.buffer, mesh)
+                .createBindGroupLayout(mesh)
+                .createBindGroup(mesh)
+            mesh.isBind = true
+
+            if (!mesh.geometry.isBind) {
+                const geometry = mesh.geometry
+                geometry.createVertexBufferLayout()
+                const buffers = [...geometry.attributes, geometry.index]
+                for (let buffer of buffers) {
+                    this.createBuffer(buffer).writeBuffer(buffer)
                 }
-
-                if (!mesh.material.isBind) {
-                    const material = mesh.material
-
-                    const buffers = material.buffers
-                    for (let buffer of buffers) {
-                        if (!buffer.GPUBuffer) {
-                            this.createBuffer(buffer)
-                                .writeBuffer(buffer)
-                                .createBindGroupLayoutEntries(buffer, material)
-                                .createBindGroupEntries(buffer, material)
-                        }
-                    }
-
-                    const textures = material.textures
-                    for (let texture of textures) {
-                        if (!texture.GPUBuffer) {
-                            this.createTexture(texture)
-                                .writeTexture(texture)
-                                .createBindGroupLayoutEntries(texture, material)
-                                .createBindGroupEntries(texture, material)
-                        }
-                    }
-
-                    const samplers = material.samplers
-                    for (let sampler of samplers) {
-                        if (!sampler.GPUSampler) {
-                            this.createSampler(sampler)
-                                .createBindGroupLayoutEntries(sampler, material)
-                                .createBindGroupEntries(sampler, material)
-                        }
-                    }
-
-                    this.createBindGroupLayout(material).createBindGroup(material)
-                    material.shaderModule = this.createShaderModule(material.shader)
-                    material.isBind = true
-                }
+                geometry.isBind = true
             }
-        })
+
+            if (!mesh.material.isBind) {
+                const material = mesh.material
+
+                const buffers = material.buffers
+                for (let buffer of buffers) {
+                    if (!buffer.GPUBuffer) {
+                        this.createBuffer(buffer)
+                            .writeBuffer(buffer)
+                            .createBindGroupLayoutEntries(buffer, material)
+                            .createBindGroupEntries(buffer, material)
+                    }
+                }
+
+                const textures = material.textures
+                for (let texture of textures) {
+                    if (!texture.GPUBuffer) {
+                        this.createTexture(texture)
+                            .writeTexture(texture)
+                            .createBindGroupLayoutEntries(texture, material)
+                            .createBindGroupEntries(texture, material)
+                    }
+                }
+
+                const samplers = material.samplers
+                for (let sampler of samplers) {
+                    if (!sampler.GPUSampler) {
+                        this.createSampler(sampler)
+                            .createBindGroupLayoutEntries(sampler, material)
+                            .createBindGroupEntries(sampler, material)
+                    }
+                }
+
+                this.createBindGroupLayout(material).createBindGroup(material)
+                material.shaderModule = this.createShaderModule(material.shader)
+                material.isBind = true
+            }
+        }
+
+        if (mesh.children.length) {
+            for (let node of mesh.children) {
+                this.bindMesh(node)
+            }
+        }
     }
 
-    bindCamera(...cameras) {
-        cameras.forEach(camera => {
-            if (!camera.isBind) {
-                camera.updateProjectionMatrix()
-                camera.updateViewMatrix()
-                camera.isBind = true
+    bindCamera(camera) {
+        if (!camera.isBind) {
+            camera.updateProjectionMatrix()
+            camera.updateViewMatrix()
+            camera.isBind = true
 
-                this.createBuffer(camera.buffer)
-                    .writeBuffer(camera.buffer)
-                    .createBindGroupLayoutEntries(camera.buffer, camera)
-                    .createBindGroupEntries(camera.buffer, camera)
-                    .createBindGroupLayout(camera)
-                    .createBindGroup(camera)
-            }
-        })
+            this.createBuffer(camera.buffer)
+                .writeBuffer(camera.buffer)
+                .createBindGroupLayoutEntries(camera.buffer, camera)
+                .createBindGroupEntries(camera.buffer, camera)
+                .createBindGroupLayout(camera)
+                .createBindGroup(camera)
+        }
     }
 
     bindLightGroup(...lightGroups) {
@@ -418,6 +421,30 @@ class WebGPUInstance {
                 lightGroup.isBind = true
             }
         })
+    }
+
+    bindScene(scene, camera) {
+        this.bindCamera(camera)
+
+        for (let node of scene.tree) {
+            this.bindMesh(node)
+        }
+
+        const pipelineGroups = []
+        for (let group of scene.materialGroups) {
+            const pipeline = new PipelineCore(group.material.name)
+            pipeline.setMaterial(group.material)
+            pipeline.setCamera(camera)
+            
+            for (let mesh of group.meshes) {
+                pipeline.addMesh(mesh)
+            }
+
+            this.createRenderPipeline(pipeline)
+            pipelineGroups.push(pipeline)
+        }
+        
+        return pipelineGroups
     }
 }
 
