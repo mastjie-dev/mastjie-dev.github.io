@@ -1,13 +1,15 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import { DepthTexture } from '../cores/TextureCore.js'
-import PipelineCore from '../cores/PipelineCore.js'
 import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
+import Scene from '../scenes/Scene.js'
 import Mesh from '../scenes/Mesh.js'
 import GeometryLibs from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import Vector3 from '../math/Vector3.js'
+
+import GLTFLoader from '../loader/gltf.js'
 
 async function main() {
     const width = window.innerWidth
@@ -28,33 +30,41 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
-    mainCamera.position.set(5, -10, -20)
+    mainCamera.position.set(5, 10, 20)
 
     const boxGeo = GeometryLibs.createBox(2, 2, 2, 1, 1, 1)
+    const sphereGeo = GeometryLibs.createSphereCube(1.5, 12)
     const gridGeo = GeometryLibs.createGrid(100, 5)
 
     const unlitMaterial = MaterialLibs.unlit({ color: new Vector3(0, 0, 1) })
     const lineMaterial = MaterialLibs.line()
 
-    const box = new Mesh(boxGeo, unlitMaterial)
-    const grid = new Mesh(gridGeo, lineMaterial)
+    const box = new Mesh(boxGeo, unlitMaterial, "box")
+    const left = new Mesh(sphereGeo, unlitMaterial, "left")
+    const right = new Mesh(sphereGeo, unlitMaterial, "right")
+    const grid = new Mesh(gridGeo, lineMaterial, "grid")
 
-    const pipelineA = new PipelineCore("pipeline A")
-    pipelineA.setCamera(mainCamera)
-    pipelineA.addMesh(box)
+    const gltfLoader = new GLTFLoader()
+    const gltf = await gltfLoader.load("../public/gltf", "robot.gltf")
+    const robot = gltf[0]
+    robot.scale.setUniform(2)
 
-    const pipelineB = new PipelineCore("pipeline B")
-    pipelineB.setCamera(mainCamera)
-    pipelineB.addMesh(grid)
+    right.position.set(5, 5, 0)
+    left.position.set(-5, 5, 0)
+    box.addChild(left)
+    box.addChild(right)
 
-    instance.bindCamera(mainCamera)
-    instance.bindMesh(box, grid)
-    instance.createRenderPipeline(pipelineA)
-    instance.createRenderPipeline(pipelineB)
+    const scene = new Scene()
+    scene.add(robot)
+    scene.add(grid)
 
-    const rpd = RenderPassDescriptorBuilder.start().end()
+    const renderObjects = instance.bindScene(scene, mainCamera)
+
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
+
+    const rpd = RenderPassDescriptorBuilder.start().end()
+    rpd.colorAttachments[0].clearValue = [.5, .5, .5, 1]
 
     const render = () => {
         const encoder = instance.createCommandEncoder()
@@ -62,46 +72,31 @@ async function main() {
         rpd.colorAttachments[0].view = context.getCurrentTexture().createView()
         rpd.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
 
-        const _pass = encoder.beginRenderPass(rpd)
+        const pass = encoder.beginRenderPass(rpd)
+        pass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
 
-        _pass.setPipeline(pipelineA.instance)
-        _pass.setBindGroup(0, unlitMaterial.bindGroup.GPUBindGroup)
-        _pass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
+        for (let obj of renderObjects) {
+            pass.setPipeline(obj.instance)
+            pass.setBindGroup(0, obj.material.bindGroup.GPUBindGroup)
 
-        for (let r of pipelineA.primitives) {
-            let i = 0
-            for (let a of r.geometry.attributes) {
-                _pass.setVertexBuffer(i, a.GPUBuffer)
-                ++i
-            }
-            _pass.setIndexBuffer(r.geometry.index.GPUBuffer,
-                r.geometry.index.format)
+            for (let primitive of obj.primitives) {
+                let i = 0
+                for (let attr of primitive.geometry.attributes) {
+                    pass.setVertexBuffer(i, attr.GPUBuffer)
+                    i++
+                }
 
-            for (let q of r.meshes) {
-                _pass.setBindGroup(2, q.bindGroup.GPUBindGroup)
-                _pass.drawIndexed(r.geometry.index.length)
+                pass.setIndexBuffer(primitive.geometry.index.GPUBuffer,
+                    primitive.geometry.index.format)
+                
+                for (let mesh of primitive.meshes) {
+                    pass.setBindGroup(2, mesh.bindGroup.GPUBindGroup)
+                    pass.drawIndexed(primitive.geometry.index.length)
+                }
             }
         }
 
-        _pass.setPipeline(pipelineB.instance)
-        _pass.setBindGroup(0, lineMaterial.bindGroup.GPUBindGroup)
-        for (let l of pipelineB.primitives) {
-            let i = 0
-            for (let a of l.geometry.attributes) {
-                _pass.setVertexBuffer(i, a.GPUBuffer)
-                ++i
-            }
-
-            _pass.setIndexBuffer(l.geometry.index.GPUBuffer,
-                l.geometry.index.format)
-
-            for (let m of l.meshes) {
-                _pass.setBindGroup(2, m.bindGroup.GPUBindGroup)
-                _pass.drawIndexed(l.geometry.index.length)
-            }            
-        }
-
-        _pass.end()
+        pass.end()
 
         instance.submitEncoder([encoder.finish()])
         // requestAnimationFrame(render)
