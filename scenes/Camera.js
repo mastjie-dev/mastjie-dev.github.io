@@ -12,7 +12,7 @@ class Camera extends NodeCore {
         this.isBind = false
 
         this.target = new Vector3()
-        this.up = new Vector3(0, 1, 0)
+        this.up = new Vector3(0, -1, 0)
 
         this.projectionMatrix = new Matrix4()
         this.viewMatrix = new Matrix4()
