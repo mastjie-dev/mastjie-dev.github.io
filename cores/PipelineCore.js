@@ -4,16 +4,11 @@ class PipelineCore {
         this.material = null
         this.lightGroup = null
         this.camera = null
-        this.meshes = []
-        this.format = "bgra8unorm"
         this.instance = null
+        this.format = "bgra8unorm"
 
+        this.meshes = []
         this.primitives = []
-
-        this.enabledFragment = true
-        this.enabledDepthStencil = true
-        this.enabledPrimitive = true
-
     }
 
     setMaterial(material) {
@@ -28,70 +23,61 @@ class PipelineCore {
         this.lightGroup = lightGroup
     }
 
-    addMesh(...meshes) {
-        meshes.forEach(mesh => {
-            this.meshes.push(mesh)
-            const primitive = this.primitives.find(p => p.geometry === mesh.geometry)
+    addMesh(mesh) {
+        this.meshes.push(mesh)
+        const primitive = this.primitives.find(p => p.geometry === mesh.geometry)
 
-            if (primitive) {
-                primitive.meshes.push(mesh)
-                return
-            }
-            else {
-                this.primitives.push({
-                    geometry: mesh.geometry,
-                    meshes: [mesh]
-                })
-            }
-        })
+        if (primitive) {
+            primitive.meshes.push(mesh)
+            return
+        }
+        else {
+            this.primitives.push({
+                geometry: mesh.geometry,
+                meshes: [mesh]
+            })
+        }
     }
 
     getBindGroupLayouts() {
         const bgl = this.lightGroup
-            ? [this.meshes[0].material, this.lightGroup, this.camera, this.meshes[0]]
-            : [this.meshes[0].material, this.camera, this.meshes[0]]
+            ? [this.material, this.lightGroup, this.camera, this.meshes[0]]
+            : [this.material, this.camera, this.meshes[0]]
         return bgl
     }
 
-    getPipelineDescriptor(pipelineLayout) {    
-        if (!this.material) {
-            this.material = this.meshes[0].material
-        }
-        
-        const pd = {
+    getPipelineDescriptor(pipelineLayout) {
+        const desc = {
             label: "",
             layout: pipelineLayout,
             vertex: {
                 module: this.material.shaderModule,
                 entryPoint: "main_vertex",
                 buffers: this.meshes[0].geometry.vertexBufferLayout,
+            },
+            primitive: {
+                cullMode: this.material.cullMode,
+                topology: this.material.topology,
             }
         }
 
-        if (this.enabledFragment) {
-            pd.fragment = {
+        if (this.material.fragmentEnabled) {
+            desc.fragment = {
                 module: this.material.shaderModule,
                 entryPoint: "main_fragment",
                 targets: [{ format: this.format }]
             }
         }
 
-        if (this.enabledDepthStencil) {
-            pd.depthStencil = {
+        if (this.material.depthWriteEnabled) {
+            desc.depthStencil = {
                 depthWriteEnabled: this.material.depthWriteEnabled,
                 format: this.material.depthFormat,
                 depthCompare: this.material.depthCompare
             }
         }
 
-        if (this.enabledPrimitive) {
-            pd.primitive = {
-                cullMode: this.material.cullMode,
-                topology: this.material.topology
-            }
-        }
-
-        return pd
+        return desc
     }
 }
 
