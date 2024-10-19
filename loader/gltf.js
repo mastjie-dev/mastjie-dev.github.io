@@ -26,22 +26,29 @@ const TYPE = {
     MAT4: "MAT4"
 }
 
+const GLB = "model/gltf-binary"
+const GLTF = "model/gltf+json"
+const MAGIC = 0x46546C67
+
 class GLTFLoader {
     constructor() {
         this.json = null
         this.materials = []
+        this.url = null
     }
 
     async load(url, filename) {
+        this.url = url
         const stream = await fetch(`${url}/${filename}`)
         const ct = stream.headers.get("content-type")
 
-        // TODO: handle glb
-
-        const json = await stream.json()
-        const blob = await fetch(`${url}/${json.buffers[0].uri}`)
-        const bin = await blob.blob()
-        const buffer = await bin.arrayBuffer()
+        let data
+        if (ct === GLB) {
+            data = await this.handleGLB(stream)
+        } else if (ct === GLTF) {
+            data = await this.handleGLTF(stream)
+        }
+        const { json, buffer } = data
 
         this.buildMaterial(json)
 
@@ -49,12 +56,51 @@ class GLTFLoader {
         for (let scene of json.scenes) {
             for (let index of scene.nodes) {
                 const parent = new NodeCore()
-                this.buildNode(json, new Uint8Array(buffer), index, parent)
+                this.buildNode(json, buffer, index, parent)
                 roots.push(parent)
             }
         }
 
         return roots
+    }
+
+    async handleGLB(stream) {
+        const blob = await stream.blob()
+        const fullBuffer = await blob.arrayBuffer()
+        const u8Buffer = new Uint8Array(fullBuffer)
+
+        const magic = new Uint32Array(u8Buffer.slice(0, 4).buffer)
+        if (magic[0] !== MAGIC) {
+            console.error("Not a valid GLTF file")
+            throw new Error()
+        }
+
+        const version = new Uint32Array(u8Buffer.slice(4, 8).buffer)
+        if (version[0] !== 2) {
+            console.error("Not version 2.0 GLTF")
+            throw new Error()
+        }
+
+        const jsonLength = new Uint32Array(u8Buffer.buffer.slice(12, 16))
+        const jsonEndOffset = 20 + jsonLength[0]
+        
+        const decoder = new TextDecoder()
+        const json = JSON.parse(decoder.decode(u8Buffer.slice(20, jsonEndOffset)))
+
+        const bufferStart = 8 + jsonEndOffset
+        const bufferLength = new Uint32Array(u8Buffer.slice(jsonEndOffset, jsonEndOffset + 4).buffer)
+        const buffer = u8Buffer.slice(bufferStart, bufferStart + bufferLength[0])
+
+        return { json, buffer }
+    }
+
+    async handleGLTF(stream) {
+        const json = await stream.json()
+        const blob = await fetch(`${this.url}/${json.buffers[0].uri}`)
+        const bin = await blob.blob()
+        const buffer = await bin.arrayBuffer()
+
+        return { json, buffer: new Uint8Array(buffer) }
     }
 
     getFormat(format, type) {
@@ -146,8 +192,16 @@ class GLTFLoader {
         const indexBuffer = new IndexBuffer(slice.data, slice.format)
         geometry.addIndex(indexBuffer)
 
+        let material
+        if (matIndex === undefined) {
+            if (this.materials.length === 0) {
+                this.materials.push(MaterialLibs.unlit())
+            }
+            material = this.materials[0]
+        } else {
+            material = this.materials[matIndex]
+        }
 
-        const material = matIndex !== undefined ? this.materials[matIndex] : MaterialLibs.unlit()
         const meshNode = new Mesh(geometry, material, node.name)
         parent.addChild(meshNode)
 
