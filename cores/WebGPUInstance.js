@@ -430,11 +430,14 @@ class WebGPUInstance {
             this.bindMesh(node)
         }
 
+        this.bindLightGroup(scene.lightGroup)
+
         const pipelineGroups = []
         for (let group of scene.materialGroups) {
             const pipeline = new PipelineCore(group.material.name)
             pipeline.setMaterial(group.material)
             pipeline.setCamera(camera)
+            pipeline.setLightGroup(scene.lightGroup)
             
             for (let mesh of group.meshes) {
                 pipeline.addMesh(mesh)
