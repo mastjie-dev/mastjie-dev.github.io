@@ -45,9 +45,9 @@ async function main() {
     const grid = new Mesh(gridGeo, lineMaterial, "grid")
 
     const gltfLoader = new GLTFLoader()
-    const gltf = await gltfLoader.load("../public/gltf", "robot.gltf")
-    const robot = gltf[0]
-    robot.scale.setUniform(2)
+    const gltf = await gltfLoader.load("../public/gltf", "helmet.gltf")
+    // const robot = gltf[0]
+    // robot.scale.setUniform(2)
 
     right.position.set(5, 5, 0)
     left.position.set(-5, 5, 0)
@@ -55,10 +55,11 @@ async function main() {
     box.addChild(right)
 
     const scene = new Scene()
-    scene.add(robot)
+    scene.add(box)
     scene.add(grid)
 
     const renderObjects = instance.bindScene(scene, mainCamera)
+    console.log(renderObjects)
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)

@@ -19,7 +19,9 @@ class LightGroup {
     }
 
     traverse(callback) {
-        this.lights.forEach(callback)
+        for (let light of this.lights) {
+            callback(light)
+        }
     }
 }
 
@@ -29,13 +31,12 @@ class Light extends NodeCore {
         this.isLight = true
 
         this.strength = 1
-        this.color = new Vector3(.8, .78, .8)
+        this.color = new Vector3(1, 1, 1)
         this.target = new Vector3(0, 0, 0)
-        this.projectionView = new Matrix4()
         this.viewSpacePosition = new Vector3()
 
         this.shadow = null
-        this.buffer = new UniformBuffer(new Float32Array(8))
+        this.buffer = new UniformBuffer(new Float32Array(32))
     }
 
     updateViewSpacePosition(camera) {
@@ -48,21 +49,6 @@ class Light extends NodeCore {
             ...this.viewSpacePosition.toArray(), 0,
             ...this.color.toArray(), this.strength,
         ]
-        
-        if (this.shadow) {
-            if (this.buffer.data.length === 8) {
-                this.buffer.data = new Float32Array(32)
-                this.buffer.length = 32
-                this.buffer.size = 32 * 4
-            }
-
-            this.shadow.position.copy(this.position)
-            this.shadow.updateProjectionViewMatrix()
-            arr.push(
-                ...this.shadow.projectionViewMatrix.elements,
-                this.shadow.bias, this.shadow.mapSize, 0, 0,
-            )
-        }
         this.buffer.data.set(arr)
     }
 }
