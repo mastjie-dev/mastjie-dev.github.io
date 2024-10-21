@@ -2,6 +2,7 @@ class Scene {
     constructor() {
         this.tree = []
         this.materialGroups = []
+        this.lightGroup = null
     }
 
     add(mesh) {
