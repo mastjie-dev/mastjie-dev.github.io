@@ -8,7 +8,7 @@ import Mesh from '../scenes/Mesh.js'
 import GeometryLibs from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
-import { DirectionalLight, LightGroup } from '../scenes/Light.js'
+import { DirectionalLight, LightGroup, PointLight, SpotLight } from '../scenes/Light.js'
 import GLTFLoader from '../loader/gltf.js'
 
 import gui from '../misc/gui.js'
@@ -20,7 +20,7 @@ struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) normal: vec3f,
     @location(1) uv: vec2f,
-    @location(2) surfacePosition: vec3f,
+    @location(2) worldPosition: vec3f,
 };
 
 struct Camera {
@@ -33,16 +33,61 @@ struct Model {
     normal: mat4x4<f32>,
 };
 
-struct Light {
-    position: vec3f,
+struct DirectionalLight {
+    direction: vec3f,
     color: vec3f,
     strength: f32,
 };
 
+struct PointLight {
+    position: vec3f,
+    color: vec3f,
+    strength: f32,
+    constant: f32,
+    linear: f32,
+    quadratic: f32,
+};
+
+struct SpotLight {
+    position: vec3f,
+    direction: vec3f,
+    color: vec3f,
+    strength: f32,
+    innerLimit: f32,
+    outerLimit: f32,
+}
+
 @group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> light: Light;
+@group(1) @binding(0) var<uniform> light: SpotLight;
 @group(2) @binding(0) var<uniform> camera: Camera;
 @group(3) @binding(0) var<uniform> model: Model;
+
+fn calc_directional_light(light: DirectionalLight, normal: vec3f) -> vec3f
+{
+    let dir = normalize(light.direction);
+    return dot(normalize(normal), dir) * light.color * light.strength;
+}
+
+fn calc_point_light(light: PointLight, position: vec3f, normal: vec3f) -> vec3f
+{
+    let dif = light.position - position;
+    let dis = length(dif);
+    let dir = normalize(dif);
+    let att = 1. / (light.constant + light.linear * dis + light.quadratic * (dis + dis)); 
+    return dot(normalize(normal), dir) * light.color * light.strength * att;
+}
+
+fn calc_spot_light(light: SpotLight, position: vec3f, normal: vec3f) -> vec3f
+{
+    let dir = normalize(light.position - position);
+    let theta = dot(normalize(light.direction), dir);
+
+    let col = dot(normal, dir) * light.color * light.strength;
+    let e = light.innerLimit - light.outerLimit;
+    let it = clamp((theta - light.outerLimit) / e, 0., 1.);
+
+    return col * it;
+}
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
@@ -55,7 +100,7 @@ struct Light {
     output.position = camera.projection * camera.view * transform;
     output.normal = (model.normal * vec4f(normal, 0.)).xyz;
     output.uv = uv;
-    output.surfacePosition = (camera.view * transform).xyz;
+    output.worldPosition = transform.xyz;
 
     return output;
 }
@@ -65,10 +110,8 @@ struct Light {
 )
     -> @location(0) vec4f 
 {
-    let lPos = normalize(light.position - input.surfacePosition);
-    let lum = smoothstep(0, 1., dot(normalize(input.normal), lPos));
-
-    let _col = vec3f(lum * light.color);
+    
+    let _col = calc_spot_light(light, input.worldPosition, input.normal);
     return vec4f(_col, 1.);
 }
 `
@@ -140,7 +183,6 @@ async function main() {
 
     const blueMaterial = MaterialLibs.unlit({ color: new Vector3(0, 1, 0) })
     blueMaterial.shader = phongShader
-    // blueMaterial.shader = phongShader
     // blueMaterial.addTexture(dirLight.shadowDepthTexture)
     // blueMaterial.addTexture(texture)
     // blueMaterial.addSampler(compareSampler)
@@ -152,7 +194,7 @@ async function main() {
 
     const box = new Mesh(boxGeo, blueMaterial)
     const sphere = new Mesh(sphereGeo, blueMaterial)
-    // const plane = new Mesh(planeGeo, blueMaterial)
+    const plane = new Mesh(planeGeo, blueMaterial)
     const boxLine = new Mesh(boxLineGeo, lineMaterial)
     const grid = new Mesh(gridGeo, lineMaterial)
 
@@ -163,26 +205,25 @@ async function main() {
     monkey.parent = null
     monkey.scale.setUniform(3)
 
-    const planeLoader = new GLTFLoader()
-    const planeScene = await planeLoader.load("../public/gltf", "plane.glb")
-    const plane = planeScene[0].children[0]
-    plane.material = blueMaterial
-    plane.parent = null
-    plane.scale.setUniform(20)
-
     box.position.x = 10
     plane.position.y = -3
-    sphere.position.x = -8
-    // plane.scale.setUniform(.2)
-    // plane.rotation.x = -Math.PI * .5
+    sphere.position.x = -10
 
     const dirLight = new DirectionalLight()
     dirLight.position.set(0, 20, 0)
-    dirLight.color.set(.78, .9, .9)
+    dirLight.color.set(1, .9, .9)
+    // dirLight.target.set(-20, 0, 0)
     dirLight.strength = 1
 
+    const pointLight = new PointLight()
+    pointLight.position.set(0, 10, 0)
+
+    const spotLight = new SpotLight()
+    spotLight.position.set(0, 10, 0)
+    // spotLight.target.set(4, 0, 5)
+
     const lightGroup = new LightGroup()
-    lightGroup.add(dirLight)
+    lightGroup.add(spotLight)
 
     const scene = new Scene()
     scene.lightGroup = lightGroup
@@ -207,8 +248,7 @@ async function main() {
     const updateWorld = () => {
         mainCamera.updateViewMatrix()
 
-        dirLight.updateViewSpacePosition(mainCamera)
-        dirLight.updateBuffer()
+        spotLight.updateBuffer()
 
         box.updateMatrixWorld()
         box.updateNormalMatrix(mainCamera)
@@ -238,7 +278,7 @@ async function main() {
             .writeBuffer(box.buffer)
             .writeBuffer(sphere.buffer)
             .writeBuffer(plane.buffer)
-            .writeBuffer(dirLight.buffer)
+            .writeBuffer(spotLight.buffer)
             .writeBuffer(monkey.buffer)
 
         rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
