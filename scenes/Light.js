@@ -32,32 +32,73 @@ class Light extends NodeCore {
 
         this.strength = 1
         this.color = new Vector3(1, 1, 1)
-        this.target = new Vector3(0, 0, 0)
-        this.viewSpacePosition = new Vector3()
 
-        this.shadow = null
-        this.buffer = new UniformBuffer(new Float32Array(32))
-    }
-
-    updateViewSpacePosition(camera) {
-        this.viewSpacePosition.copy(this.position)
-        this.viewSpacePosition.multiplyMatrix4(camera.viewMatrix)
-    }
-
-    updateBuffer() {
-        const arr = [
-            ...this.viewSpacePosition.toArray(), 0,
-            ...this.color.toArray(), this.strength,
-        ]
-        this.buffer.data.set(arr)
     }
 }
 
 class DirectionalLight extends Light {
     constructor() {
         super()
-        this.dimension = 10
+        this.target = new Vector3()
+        
+        this.buffer = new UniformBuffer(new Float32Array(8))
+    }
+
+    updateBuffer() {
+        const direction = new Vector3()
+        direction.subVector(this.position, this.target)
+        const arr = [
+            ...direction.toArray(), 0,
+            ...this.color.toArray(), this.strength
+        ]
+        this.buffer.data.set(arr)
     }
 }
 
-export { LightGroup, Light, DirectionalLight }
+class PointLight extends Light {
+    constructor() {
+        super()
+        this.constant = 1.
+        this.linear = .09
+        this.quadratic = .032
+
+        this.buffer = new UniformBuffer(new Float32Array(12))
+    }
+
+    updateBuffer() {
+        const arr = [
+            ...this.position.toArray(), 0,
+            ...this.color.toArray(), this.strength,
+            this.constant, this.linear, this.quadratic, 0
+        ]
+
+        this.buffer.data.set(arr)
+    }
+}
+
+class SpotLight extends Light {
+    constructor() {
+        super()
+
+        this.target = new Vector3()
+        this.innerLimit = .9
+        this.outerLimit = .7
+
+        this.buffer = new UniformBuffer(new Float32Array(16))
+    }
+
+    updateBuffer() {
+        const direction = new Vector3()
+        direction.subVector(this.position, this.target)
+        const arr = [
+            ...this.position.toArray(), 0,
+            ...direction.toArray(), 0,
+            ...this.color.toArray(), this.strength,
+            this.innerLimit, this.outerLimit,
+        ]
+
+        this.buffer.data.set(arr)
+    }
+}
+
+export { LightGroup, Light, DirectionalLight, PointLight, SpotLight }
