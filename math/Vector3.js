@@ -173,6 +173,16 @@ class Vector3 {
         return this
     }
 
+    multiplyMatrix3(m3) {
+        const m = m3.elements
+        const x = this.x*m[0] + this.y*m[4] + this.z*m[8]
+        const y = this.x*m[1] + this.y*m[5] + this.z*m[9]
+        const z = this.x*m[2] + this.y*m[6] + this.z*m[10]
+
+        this.set(x, y, z)
+        return this
+    }
+
     multiplyMatrix4(m4, w = 0) {
         const m = m4.elements
         const x = this.x*m[0] + this.y*m[4] + this.z*m[8]  + w*m[12]
@@ -180,7 +190,6 @@ class Vector3 {
         const z = this.x*m[2] + this.y*m[6] + this.z*m[10] + w*m[14]
 
         this.set(x, y, z)
-
         return this
     }
 }
