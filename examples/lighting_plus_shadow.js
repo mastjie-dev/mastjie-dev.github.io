@@ -8,7 +8,7 @@ import Mesh from '../scenes/Mesh.js'
 import GeometryLibs from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
-import { DirectionalLight, LightGroup, PointLight, SpotLight } from '../scenes/Light.js'
+import { DirectionalLight, PointLight, SpotLight } from '../scenes/Light.js'
 import GLTFLoader from '../loader/gltf.js'
 
 import gui from '../misc/gui.js'
@@ -58,7 +58,7 @@ struct SpotLight {
 }
 
 @group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> light: SpotLight;
+@group(1) @binding(0) var<uniform> dirLight: DirectionalLight;
 @group(2) @binding(0) var<uniform> camera: Camera;
 @group(3) @binding(0) var<uniform> model: Model;
 
@@ -111,7 +111,7 @@ fn calc_spot_light(light: SpotLight, position: vec3f, normal: vec3f) -> vec3f
     -> @location(0) vec4f 
 {
     
-    let _col = calc_spot_light(light, input.worldPosition, input.normal);
+    let _col = calc_directional_light(dirLight, input.normal);
     return vec4f(_col, 1.);
 }
 `
@@ -183,7 +183,7 @@ async function main() {
 
     const blueMaterial = MaterialLibs.unlit({ color: new Vector3(0, 1, 0) })
     blueMaterial.shader = phongShader
-    // blueMaterial.addTexture(dirLight.shadowDepthTexture)
+    // blueMaterial.addTexture(dirLight.shadowDepthTexture)`
     // blueMaterial.addTexture(texture)
     // blueMaterial.addSampler(compareSampler)
     // blueMaterial.addSampler(new SamplerCore({
@@ -211,26 +211,12 @@ async function main() {
 
     const dirLight = new DirectionalLight()
     dirLight.position.set(0, 20, 0)
-    dirLight.color.set(1, .9, .9)
-    // dirLight.target.set(-20, 0, 0)
-    dirLight.strength = 1
-
-    const pointLight = new PointLight()
-    pointLight.position.set(0, 10, 0)
-
-    const spotLight = new SpotLight()
-    spotLight.position.set(0, 10, 0)
-    // spotLight.target.set(4, 0, 5)
-
-    const lightGroup = new LightGroup()
-    lightGroup.add(spotLight)
 
     const scene = new Scene()
-    scene.lightGroup = lightGroup
-    scene.add(box)
-    scene.add(sphere)
-    scene.add(plane)
-    scene.add(monkey)
+        scene.addMesh(sphere)
+    scene.addMesh(plane)
+    scene.addMesh(monkey)
+    scene.addLight(dirLight)
 
     const renderObjects = instance.bindScene(scene, mainCamera)
 
@@ -241,29 +227,25 @@ async function main() {
     //     .start().disableColorAttachment().disableStencil().end()
     // shadowDesc.depthStencilAttachment.view = dirLight.shadowDepthTexture.GPUTexture.createView()
 
-    const rpDesc = RenderPassDescriptorBuilder.start().end()
+    const rpDesc = RenderPassDescriptorBuilder.clone()
     rpDesc.colorAttachments[0].clearValue = [.3, .3, .4, 0]
     rpDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
 
     const updateWorld = () => {
         mainCamera.updateViewMatrix()
 
-        spotLight.updateBuffer()
-
-        box.updateMatrixWorld()
-        box.updateNormalMatrix(mainCamera)
-        box.updateBuffer()
+        dirLight.updateBuffer()
 
         sphere.updateMatrixWorld()
-        sphere.updateNormalMatrix(mainCamera)
+        sphere.updateNormalMatrix()
         sphere.updateBuffer()
 
         plane.updateMatrixWorld()
-        plane.updateNormalMatrix(mainCamera)
+        plane.updateNormalMatrix()
         plane.updateBuffer()
 
         monkey.updateMatrixWorld()
-        monkey.updateNormalMatrix(mainCamera)
+        monkey.updateNormalMatrix()
         monkey.updateBuffer()
 
         // boxLine.localMatrix.copy(dirLight.projectionView).inverse()
@@ -275,10 +257,9 @@ async function main() {
         updateWorld()
         instance
             .writeBuffer(mainCamera.buffer)
-            .writeBuffer(box.buffer)
             .writeBuffer(sphere.buffer)
             .writeBuffer(plane.buffer)
-            .writeBuffer(spotLight.buffer)
+            .writeBuffer(dirLight.buffer)
             .writeBuffer(monkey.buffer)
 
         rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
@@ -287,7 +268,7 @@ async function main() {
 
         const mPass = encoder.beginRenderPass(rpDesc)
         mPass.setBindGroup(2, mainCamera.bindGroup.GPUBindGroup)
-        mPass.setBindGroup(1, lightGroup.bindGroup.GPUBindGroup)
+        mPass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
 
         for (let obj of renderObjects) {
             mPass.setPipeline(obj.instance)
