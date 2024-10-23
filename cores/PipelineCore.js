@@ -2,7 +2,7 @@ class PipelineCore {
     constructor(label = "") {
         this.label = label
         this.material = null
-        this.lightGroup = null
+        this.scene = null
         this.camera = null
         this.instance = null
         this.format = "bgra8unorm"
@@ -19,8 +19,8 @@ class PipelineCore {
         this.camera = camera
     }
 
-    setLightGroup(lightGroup) {
-        this.lightGroup = lightGroup
+    setScene(scene) {
+        this.scene = scene
     }
 
     addMesh(mesh) {
@@ -40,9 +40,7 @@ class PipelineCore {
     }
 
     getBindGroupLayouts() {
-        const bgl = this.lightGroup
-            ? [this.material, this.lightGroup, this.camera, this.meshes[0]]
-            : [this.material, this.camera, this.meshes[0]]
+        const bgl = [this.material, this.scene, this.camera, this.meshes[0]]
         return bgl
     }
 

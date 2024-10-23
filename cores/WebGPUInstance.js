@@ -400,27 +400,16 @@ class WebGPUInstance {
         }
     }
 
-    bindLightGroup(...lightGroups) {
-        lightGroups.forEach(lightGroup => {
-            if (!lightGroup.isBind) {
-                lightGroup.lights.forEach(light => {
+    bindLightGroup(light, owner) {
+        if (!light.isBind) {
+            light.updateBuffer()
+            light.isBind = true
 
-                    if (!light.isBind) {
-                        light.updateBuffer()
-                        light.isBind = true
-
-                        this.createBuffer(light.buffer)
-                            .writeBuffer(light.buffer)
-                            .createBindGroupLayoutEntries(light.buffer, lightGroup)
-                            .createBindGroupEntries(light.buffer, lightGroup)
-                    }
-                })
-
-                this.createBindGroupLayout(lightGroup)
-                    .createBindGroup(lightGroup)
-                lightGroup.isBind = true
-            }
-        })
+            this.createBuffer(light.buffer)
+                .writeBuffer(light.buffer)
+                .createBindGroupLayoutEntries(light.buffer, owner)
+                .createBindGroupEntries(light.buffer, owner)
+        }
     }
 
     bindScene(scene, camera) {
@@ -430,15 +419,21 @@ class WebGPUInstance {
             this.bindMesh(node)
         }
 
-        this.bindLightGroup(scene.lightGroup)
+        for (let light of scene.lights) {
+            this.bindLightGroup(light, scene)
+        }
+
+        this.createBindGroupLayout(scene)
+            .createBindGroup(scene)
+
 
         const pipelineGroups = []
         for (let group of scene.materialGroups) {
             const pipeline = new PipelineCore(group.material.name)
             pipeline.setMaterial(group.material)
             pipeline.setCamera(camera)
-            pipeline.setLightGroup(scene.lightGroup)
-            
+            pipeline.setScene(scene)
+
             for (let mesh of group.meshes) {
                 pipeline.addMesh(mesh)
             }
@@ -446,7 +441,7 @@ class WebGPUInstance {
             this.createRenderPipeline(pipeline)
             pipelineGroups.push(pipeline)
         }
-        
+
         return pipelineGroups
     }
 }

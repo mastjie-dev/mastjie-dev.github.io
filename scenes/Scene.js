@@ -1,11 +1,17 @@
+import BindGroup from "../cores/BindGroup.js"
+import BindGroupLayout from "../cores/BindGroupLayout.js"
+
 class Scene {
     constructor() {
         this.tree = []
         this.materialGroups = []
-        this.lightGroup = null
+        this.lights = []
+
+        this.bindGroup = new BindGroup()
+        this.bindGroupLayout = new BindGroupLayout()
     }
 
-    add(mesh) {
+    addMesh(mesh) {
         if (!mesh.parent) {
             this.tree.push(mesh)
         }
@@ -28,6 +34,12 @@ class Scene {
             for (let child of mesh.children) {
                 this.add(child)
             }
+        }
+    }
+
+    addLight(light) {
+        if (light.isLight) {
+            this.lights.push(light)
         }
     }
 }

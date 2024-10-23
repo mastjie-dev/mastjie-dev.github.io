@@ -1,29 +1,7 @@
-import BindGroup from "../cores/BindGroup.js"
-import BindGroupLayout from "../cores/BindGroupLayout.js"
 import Vector3 from "../math/Vector3.js"
 import NodeCore from './NodeCore.js'
 import { UniformBuffer } from "../cores/BufferCore.js"
 import Matrix4 from "../math/Matrix4.js"
-
-class LightGroup {
-    constructor() {
-        this.isBind = false
-        this.lights = []
-    
-        this.bindGroup = new BindGroup()
-        this.bindGroupLayout = new BindGroupLayout()
-    }
-
-    add(light) {
-        this.lights.push(light)
-    }
-
-    traverse(callback) {
-        for (let light of this.lights) {
-            callback(light)
-        }
-    }
-}
 
 class Light extends NodeCore {
     constructor() {
@@ -101,4 +79,4 @@ class SpotLight extends Light {
     }
 }
 
-export { LightGroup, Light, DirectionalLight, PointLight, SpotLight }
+export { Light, DirectionalLight, PointLight, SpotLight }
