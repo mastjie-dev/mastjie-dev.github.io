@@ -3,10 +3,8 @@
 Building small rendering library to learn WebGPU and graphics programming
 
 ## Next
- - Visual & text debugger
- - World axis viewer
- - shadow mapping
- - lighting (spotlight & point)
+ - quaternion
+ - gltf material
  - particles: example
  - mipmaps
  - blending
