@@ -199,7 +199,7 @@ function createSphereCube(radius = 1, segment = 2) {
         length += f.position.length / 3
     }
 
-    const geometry = new BaseGeometry("spherecube geometry")
+    const geometry = new BaseGeometry("sphere cube geometry")
     geometry.addAttributes(new VertexBuffer("position", new Float32Array(position)))
     geometry.addAttributes(new VertexBuffer("normal", new Float32Array(normal)))
     geometry.addAttributes(new VertexBuffer("uv", new Float32Array(uv), "float32x2"))
@@ -230,7 +230,7 @@ function createGrid(dimension = 100, gridSize = 5) {
         }
     }
 
-    const geometry = new BaseGeometry("plane geometry")
+    const geometry = new BaseGeometry("grid geometry")
     geometry.addAttributes(new VertexBuffer("position", new Float32Array(position)))
     geometry.addIndex(new IndexBuffer(new Uint32Array(index)))
 
