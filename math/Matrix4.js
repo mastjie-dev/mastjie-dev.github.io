@@ -328,11 +328,11 @@ class Matrix4 {
         const el = this.elements
 
         el[0]  = 2 / (right - left)
-        el[5]  = 2 / (bottom - top)
+        el[5]  = 2 / (top - bottom)
         el[10] = 1 / (near - far)
         
         el[12] = (left + right) / (left - right)
-        el[13] = (top + bottom) / (top - bottom)
+        el[13] = (top + bottom) / (bottom - top)
         el[14] = near / (near - far)
         el[15] = 1
 
