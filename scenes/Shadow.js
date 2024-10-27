@@ -4,9 +4,9 @@ import { DepthTexture } from "../cores/TextureCore.js"
 
 class DirectionalShadow {
     constructor() {
-        this.dimension = 20
+        this.dimension = 40
         this.near = 1
-        this.far = 100
+        this.far = 1000
         this.mapSize = 1024
         this.bias = .007
         this.depthTexture = new DepthTexture(this.mapSize, this.mapSize)
@@ -18,14 +18,17 @@ class DirectionalShadow {
         this.projectionViewMatrix = new Matrix4()
     }
 
-    updateProjectionViewMatrix() {
-        const v = new Matrix4()
-        v.lookAt(this.position, this.target, new Vector3(0, 1, 0))
+    updateProjectionViewMatrix(position, target) {
+        this.position.copy(position)
+        this.target.copy(target)
 
-        const h = this.dimension / 2
+        const viewMatrix = new Matrix4()
+        viewMatrix.lookAt(this.position, this.target, new Vector3(0, -1, 0))
+
+        const d = this.dimension / 2
         this.projectionViewMatrix.clear()
-        this.projectionViewMatrix.orthographic(-h, h, h, -h, this.near, this.far)
-        this.projectionViewMatrix.multiply(v)
+        this.projectionViewMatrix.orthographic(-d, d, -d, d, this.near, this.far)
+        this.projectionViewMatrix.multiply(viewMatrix)
     }
 }
 
