@@ -1,16 +1,15 @@
 import Vector3 from "../math/Vector3.js"
 import NodeCore from './NodeCore.js'
 import { UniformBuffer } from "../cores/BufferCore.js"
-import Matrix4 from "../math/Matrix4.js"
 
 class Light extends NodeCore {
     constructor() {
         super("light")
         this.isLight = true
-
         this.strength = 1
         this.color = new Vector3(1, 1, 1)
 
+        this.shadow = null
     }
 }
 
@@ -19,7 +18,7 @@ class DirectionalLight extends Light {
         super()
         this.target = new Vector3()
         
-        this.buffer = new UniformBuffer(new Float32Array(8))
+        this.buffer = new UniformBuffer(new Float32Array(24))
     }
 
     updateBuffer() {
@@ -30,6 +29,11 @@ class DirectionalLight extends Light {
             ...this.color.toArray(), this.strength
         ]
         this.buffer.data.set(arr)
+
+        if (this.shadow) {
+            this.shadow.updateProjectionViewMatrix(this.position, this.target)
+            this.buffer.data.set(this.shadow.projectionViewMatrix.elements, 8)
+        }
     }
 }
 
@@ -40,7 +44,7 @@ class PointLight extends Light {
         this.linear = .09
         this.quadratic = .032
 
-        this.buffer = new UniformBuffer(new Float32Array(12))
+        this.buffer = new UniformBuffer(new Float32Array(28))
     }
 
     updateBuffer() {
@@ -49,8 +53,12 @@ class PointLight extends Light {
             ...this.color.toArray(), this.strength,
             this.constant, this.linear, this.quadratic, 0
         ]
-
         this.buffer.data.set(arr)
+
+        if (this.shadow) {
+            this.shadow.updateProjectionViewMatrix(this.position, this.target)
+            this.buffer.data.set(this.shadow.projectionViewMatrix.elements, 12)
+        }
     }
 }
 
