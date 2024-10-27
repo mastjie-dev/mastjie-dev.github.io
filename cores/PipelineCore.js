@@ -1,57 +1,26 @@
 class PipelineCore {
-    constructor(label = "") {
+    constructor(material, label = "") {
         this.label = label
-        this.material = null
-        this.scene = null
-        this.camera = null
-        this.instance = null
-        this.format = "bgra8unorm"
-
-        this.meshes = []
-        this.primitives = []
-    }
-
-    setMaterial(material) {
         this.material = material
+        this.format = "bgra8unorm"
+        this.instance = null
+        this.vertexBufferLayout = null
     }
 
-    setCamera(camera) {
-        this.camera = camera
-    }
-
-    setScene(scene) {
-        this.scene = scene
-    }
-
-    addMesh(mesh) {
-        this.meshes.push(mesh)
-        const primitive = this.primitives.find(p => p.geometry === mesh.geometry)
-
-        if (primitive) {
-            primitive.meshes.push(mesh)
-            return
+    setVertexBufferLayout(vertexBufferLayout) {
+        if (!this.vertexBufferLayout) {
+            this.vertexBufferLayout = vertexBufferLayout
         }
-        else {
-            this.primitives.push({
-                geometry: mesh.geometry,
-                meshes: [mesh]
-            })
-        }
-    }
-
-    getBindGroupLayouts() {
-        const bgl = [this.material, this.scene, this.camera, this.meshes[0]]
-        return bgl
     }
 
     getPipelineDescriptor(pipelineLayout) {
-        const desc = {
+        const descriptor = {
             label: "",
             layout: pipelineLayout,
             vertex: {
                 module: this.material.shaderModule,
                 entryPoint: "main_vertex",
-                buffers: this.meshes[0].geometry.vertexBufferLayout,
+                buffers: this.vertexBufferLayout,
             },
             primitive: {
                 cullMode: this.material.cullMode,
@@ -60,7 +29,7 @@ class PipelineCore {
         }
 
         if (this.material.fragmentEnabled) {
-            desc.fragment = {
+            descriptor.fragment = {
                 module: this.material.shaderModule,
                 entryPoint: "main_fragment",
                 targets: [{ format: this.format }]
@@ -68,14 +37,14 @@ class PipelineCore {
         }
 
         if (this.material.depthWriteEnabled) {
-            desc.depthStencil = {
+            descriptor.depthStencil = {
                 depthWriteEnabled: this.material.depthWriteEnabled,
                 format: this.material.depthFormat,
                 depthCompare: this.material.depthCompare
             }
         }
 
-        return desc
+        return descriptor
     }
 }
 
