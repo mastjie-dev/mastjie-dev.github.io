@@ -1,5 +1,5 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import { DepthTexture, ExternalImageTexture } from '../cores/TextureCore.js'
+import { DepthTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
 import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
 
@@ -8,12 +8,14 @@ import Mesh from '../scenes/Mesh.js'
 import GeometryLibs from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
-import { DirectionalLight, PointLight, SpotLight } from '../scenes/Light.js'
+import { DirectionalLight } from '../scenes/Light.js'
 import GLTFLoader from '../loader/gltf.js'
 
+import { DirectionalShadow } from '../scenes/Shadow.js'
 import gui from '../misc/gui.js'
 import { degreeToRadian, loadImageBitmap } from '../misc/utils.js'
 import Vector3 from '../math/Vector3.js'
+import BaseMaterial from '../scenes/BaseMaterial.js'
 
 const phongShader = `
 struct VSOutput {
@@ -21,6 +23,7 @@ struct VSOutput {
     @location(0) normal: vec3f,
     @location(1) uv: vec2f,
     @location(2) worldPosition: vec3f,
+    @location(3) lightViewPosition: vec3f,
 };
 
 struct Camera {
@@ -37,6 +40,7 @@ struct DirectionalLight {
     direction: vec3f,
     color: vec3f,
     strength: f32,
+    projectionView: mat4x4<f32>,
 };
 
 struct PointLight {
@@ -58,6 +62,8 @@ struct SpotLight {
 }
 
 @group(0) @binding(0) var<uniform> color: vec3f;
+@group(0) @binding(1) var shadowMap: texture_depth_2d;
+@group(0) @binding(2) var shadowSampler: sampler_comparison;
 @group(1) @binding(0) var<uniform> dirLight: DirectionalLight;
 @group(2) @binding(0) var<uniform> camera: Camera;
 @group(3) @binding(0) var<uniform> model: Model;
@@ -97,10 +103,16 @@ fn calc_spot_light(light: SpotLight, position: vec3f, normal: vec3f) -> vec3f
 {
     var output: VSOutput;
     let transform = model.matrix * vec4f(position, 1.);
-    output.position = camera.projection * camera.view * transform;
+    let clipSpacePos = camera.projection * camera.view * transform;
+    let lightSpacePos = dirLight.projectionView * transform;   
+
+    output.position = clipSpacePos;
     output.normal = (model.normal * vec4f(normal, 0.)).xyz;
     output.uv = uv;
     output.worldPosition = transform.xyz;
+    output.lightViewPosition = vec3f(
+        lightSpacePos.xy * vec2f(.5, -.5) + vec2f(.5),
+        lightSpacePos.z);
 
     return output;
 }
@@ -111,7 +123,11 @@ fn calc_spot_light(light: SpotLight, position: vec3f, normal: vec3f) -> vec3f
     -> @location(0) vec4f 
 {
     
-    let _col = calc_directional_light(dirLight, input.normal);
+    var visibility = 0.;
+    visibility += textureSampleCompare(shadowMap, shadowSampler, 
+        input.lightViewPosition.xy, input.lightViewPosition.z - 0.005);
+
+    let _col = calc_directional_light(dirLight, input.normal) * visibility;
     return vec4f(_col, 1.);
 }
 `
@@ -122,21 +138,21 @@ struct Model {
     normal: mat4x4<f32>,
 };
 
-struct Light {
-    position: vec3f,
+struct DirectionalLight {
+    direction: vec3f,
     color: vec3f,
     strength: f32,
-    projection: mat4x4<f32>,
+    projectionView: mat4x4<f32>,
 };
 
-@group(0) @binding(0) var<uniform> model: Model;
-@group(1) @binding(0) var<uniform> light: Light;
+@group(0) @binding(0) var<uniform> light: DirectionalLight;
+@group(1) @binding(0) var<uniform> model: Model;
 
 @vertex fn main_vertex(
     @location(0) position: vec3f
 ) -> @builtin(position) vec4f
 {
-    return light.projection * model.matrix * vec4f(position, 1.);
+    return light.projectionView * model.matrix * vec4f(position, 1.);
 }
 `
 
@@ -158,9 +174,6 @@ async function main() {
         format: canvasFormat
     })
 
-    const bitmap = await loadImageBitmap('../public/f-texture.png')
-    const texture = new ExternalImageTexture(bitmap.width, bitmap.height, bitmap)
-
     const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
     mainCamera.position.set(0, 30, 30)
 
@@ -181,51 +194,55 @@ async function main() {
     })
     compareSampler.type = "comparison"
 
-    const blueMaterial = MaterialLibs.unlit({ color: new Vector3(0, 1, 0) })
+    const dirShadow = new DirectionalShadow()
+
+    const blueMaterial = MaterialLibs.unlit({ color: new Vector3(1, 1, 1) })
     blueMaterial.shader = phongShader
-    // blueMaterial.addTexture(dirLight.shadowDepthTexture)`
-    // blueMaterial.addTexture(texture)
-    // blueMaterial.addSampler(compareSampler)
-    // blueMaterial.addSampler(new SamplerCore({
-    //     addressModeU: "clamp-to-edge",
-    //     addressModeV: "clamp-to-edge",
-    // }))
+    blueMaterial.addTexture(dirShadow.depthTexture)
+    blueMaterial.addSampler(compareSampler)
+
     const lineMaterial = MaterialLibs.line({ color: new Vector3(1, 1, 1) })
 
-    const box = new Mesh(boxGeo, blueMaterial)
+    const shadowMaterial = new BaseMaterial("shadow map")
+    shadowMaterial.shader = shadowShader
+    shadowMaterial.fragmentEnabled = false
+    shadowMaterial.depthFormat = "depth32float"
+
     const sphere = new Mesh(sphereGeo, blueMaterial)
     const plane = new Mesh(planeGeo, blueMaterial)
     const boxLine = new Mesh(boxLineGeo, lineMaterial)
-    const grid = new Mesh(gridGeo, lineMaterial)
 
     const gltfLoader = new GLTFLoader()
     const gltf = await gltfLoader.load("../public/gltf", "monkey.gltf")
     const monkey = gltf[0].children[0]
     monkey.material = blueMaterial
     monkey.parent = null
-    monkey.scale.setUniform(3)
+    monkey.scale.setUniform(5)
 
-    box.position.x = 10
     plane.position.y = -3
     sphere.position.x = -10
+    monkey.position.x = 10
 
     const dirLight = new DirectionalLight()
-    dirLight.position.set(0, 20, 0)
+    dirLight.position.set(-10, 20, 20)
+    dirLight.shadow = dirShadow
 
     const scene = new Scene()
-        scene.addMesh(sphere)
-    scene.addMesh(plane)
-    scene.addMesh(monkey)
-    scene.addLight(dirLight)
+    scene.addNode(sphere)
+    scene.addNode(plane)
+    scene.addNode(monkey)
+    scene.addNode(dirLight)
 
-    const renderObjects = instance.bindScene(scene, mainCamera)
+    const renderGroups = instance.bindScene(scene, mainCamera)
+    const shadowGroups = instance.bindShadowScene(scene, shadowMaterial)
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
 
-    // const shadowDesc = RenderPassDescriptorBuilder
-    //     .start().disableColorAttachment().disableStencil().end()
-    // shadowDesc.depthStencilAttachment.view = dirLight.shadowDepthTexture.GPUTexture.createView()
+    const spDesc = RenderPassDescriptorBuilder.clone()
+    RenderPassDescriptorBuilder.disableColorAttachment(spDesc)
+    RenderPassDescriptorBuilder.disableStencil(spDesc)
+    spDesc.depthStencilAttachment.view = dirShadow.depthTexture.GPUTexture.createView()
 
     const rpDesc = RenderPassDescriptorBuilder.clone()
     rpDesc.colorAttachments[0].clearValue = [.3, .3, .4, 0]
@@ -259,36 +276,52 @@ async function main() {
             .writeBuffer(mainCamera.buffer)
             .writeBuffer(sphere.buffer)
             .writeBuffer(plane.buffer)
-            .writeBuffer(dirLight.buffer)
             .writeBuffer(monkey.buffer)
-
-        rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
+            .writeBuffer(dirLight.buffer)
 
         const encoder = instance.createCommandEncoder()
 
+        // shadow scene
+        const sPass = encoder.beginRenderPass(spDesc)
+        sPass.setBindGroup(0, scene.bindGroup.GPUBindGroup)
+        sPass.setPipeline(shadowGroups.pipeline)
+
+        for (let primitive of shadowGroups.primitives) {
+            sPass.setVertexBuffer(0, primitive.positionBuffer)
+            sPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+
+            for (let transform of primitive.transforms) {
+                sPass.setBindGroup(1, transform)
+                sPass.drawIndexed(primitive.indexLength)
+            }
+        }
+        sPass.end()
+
+        // main scene
+        rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
         const mPass = encoder.beginRenderPass(rpDesc)
         mPass.setBindGroup(2, mainCamera.bindGroup.GPUBindGroup)
         mPass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
 
-        for (let obj of renderObjects) {
-            mPass.setPipeline(obj.instance)
-            mPass.setBindGroup(0, obj.material.bindGroup.GPUBindGroup)
+        for (let group of renderGroups) {
+            mPass.setPipeline(group.pipeline)
+            mPass.setBindGroup(0, group.material)
 
-            for (let mesh of obj.meshes) {
-                mPass.setBindGroup(3, mesh.bindGroup.GPUBindGroup)
-
+            for (let primitive of group.primitives) {
                 let i = 0
-                for (let attr of mesh.geometry.attributes) {
-                    mPass.setVertexBuffer(i, attr.GPUBuffer)
+                for (let attribute of primitive.attributes) {
+                    mPass.setVertexBuffer(i, attribute)
                     ++i
                 }
 
-                mPass.setIndexBuffer(mesh.geometry.index.GPUBuffer,
-                    mesh.geometry.index.format)
-                mPass.drawIndexed(mesh.geometry.index.length)
+                mPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+
+                for (let transform of primitive.transforms) {
+                    mPass.setBindGroup(3, transform)
+                    mPass.drawIndexed(primitive.indexLength)
+                }
             }
         }
-
         mPass.end()
 
         instance.submitEncoder([encoder.finish()])
