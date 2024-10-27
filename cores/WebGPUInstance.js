@@ -1,3 +1,4 @@
+import BaseMaterial from "../scenes/BaseMaterial.js"
 import PipelineCore from "./PipelineCore.js"
 
 class WebGPUInstance {
@@ -249,12 +250,9 @@ class WebGPUInstance {
         })
     }
 
-    createRenderPipeline(pipelineCore) {
-        const pipelineLayout = this.createPipelineLayout(
-            ...pipelineCore.getBindGroupLayouts())
-
+    createRenderPipeline(pipelineCore, pipelineLayout) {
         const pipelineDescriptor = pipelineCore.getPipelineDescriptor(pipelineLayout)
-        pipelineCore.instance = this.device.createRenderPipeline(pipelineDescriptor)
+        return this.device.createRenderPipeline(pipelineDescriptor)
     }
 
     createComputePipeline(compute, pipelineLayout) {
@@ -321,6 +319,7 @@ class WebGPUInstance {
 
         if (mesh.isMesh && !mesh.isBind) {
             mesh.updateBuffer()
+            mesh.isBind = true
 
             this.createBuffer(mesh.buffer)
                 .writeBuffer(mesh.buffer)
@@ -328,7 +327,6 @@ class WebGPUInstance {
                 .createBindGroupEntries(mesh.buffer, mesh)
                 .createBindGroupLayout(mesh)
                 .createBindGroup(mesh)
-            mesh.isBind = true
 
             if (!mesh.geometry.isBind) {
                 const geometry = mesh.geometry
@@ -400,49 +398,107 @@ class WebGPUInstance {
         }
     }
 
-    bindLightGroup(light, owner) {
-        if (!light.isBind) {
-            light.updateBuffer()
-            light.isBind = true
+    bindLights(scene) {
+        scene.lights.forEach(light => {
+            if (!light.isBind) {
+                light.updateBuffer()
+                light.isBind = true
 
-            this.createBuffer(light.buffer)
-                .writeBuffer(light.buffer)
-                .createBindGroupLayoutEntries(light.buffer, owner)
-                .createBindGroupEntries(light.buffer, owner)
-        }
+                this.createBuffer(light.buffer)
+                    .writeBuffer(light.buffer)
+                    .createBindGroupLayoutEntries(light.buffer, scene)
+                    .createBindGroupEntries(light.buffer, scene)
+            }
+        })
     }
 
     bindScene(scene, camera) {
         this.bindCamera(camera)
-
-        for (let node of scene.tree) {
-            this.bindMesh(node)
-        }
-
-        for (let light of scene.lights) {
-            this.bindLightGroup(light, scene)
-        }
-
+        this.bindLights(scene)
         this.createBindGroupLayout(scene)
             .createBindGroup(scene)
 
-
-        const pipelineGroups = []
-        for (let group of scene.materialGroups) {
-            const pipeline = new PipelineCore(group.material.name)
-            pipeline.setMaterial(group.material)
-            pipeline.setCamera(camera)
-            pipeline.setScene(scene)
-
-            for (let mesh of group.meshes) {
-                pipeline.addMesh(mesh)
-            }
-
-            this.createRenderPipeline(pipeline)
-            pipelineGroups.push(pipeline)
+        for (let node of scene.trees) {
+            this.bindMesh(node)
         }
 
-        return pipelineGroups
+        const groups = scene.materialGroups.map(mGroup => {
+            const material = mGroup.material.bindGroup.GPUBindGroup
+            const pipelineCore = new PipelineCore(mGroup.material)
+
+            const primitives = mGroup.primitives.map(pmv => {
+                const { geometry, meshes } = pmv
+                pipelineCore.setVertexBufferLayout(geometry.vertexBufferLayout)
+
+                const attributes = geometry.attributes
+                    .map(attr => attr.GPUBuffer)
+
+                const indexBuffer = geometry.index.GPUBuffer
+                const indexFormat = geometry.index.format
+                const indexLength = geometry.index.length
+
+                const transforms = meshes.map(mesh => {
+                    return mesh.bindGroup.GPUBindGroup
+                })
+
+                return {
+                    attributes,
+                    indexBuffer,
+                    indexFormat,
+                    indexLength,
+                    transforms,
+                }
+            })
+
+            const pipelineLayout = this.createPipelineLayout(
+                mGroup.material, scene, camera, mGroup.primitives[0].meshes[0])
+
+            const pipeline = this.createRenderPipeline(pipelineCore, pipelineLayout)
+
+            return {
+                material,
+                primitives,
+                pipeline,
+            }
+        })
+
+        return groups
+    }
+
+    bindShadowScene(scene, shadowMaterial) {
+        shadowMaterial.shaderModule = this.createShaderModule(shadowMaterial.shader)
+
+        const pipelineCore = new PipelineCore(shadowMaterial, "shadow pipeline")
+
+        const primitives = scene.shadowMaterialGroups.map(primitive => {
+            const { geometry, meshes } = primitive
+            pipelineCore.setVertexBufferLayout([geometry.vertexBufferLayout[0]])
+
+            const positionBuffer = geometry.attributes[0].GPUBuffer
+            const indexBuffer = geometry.index.GPUBuffer
+            const indexFormat = geometry.index.format
+            const indexLength = geometry.index.length
+
+            const transforms = meshes.map(_ => _.bindGroup.GPUBindGroup)
+
+            return {
+                positionBuffer,
+                indexBuffer,
+                indexFormat,
+                indexLength,
+                transforms
+            }
+        })
+
+        const pipelineLayout = this.createPipelineLayout(scene,
+            scene.shadowMaterialGroups[0].meshes[0])
+
+        const pipeline = this.createRenderPipeline(pipelineCore, pipelineLayout)
+
+        return {
+            primitives,
+            pipeline,
+        }
     }
 }
 
