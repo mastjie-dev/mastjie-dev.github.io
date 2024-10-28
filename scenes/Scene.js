@@ -68,8 +68,10 @@ class Scene {
 
         if (node.isMesh) {
             this.buildMaterialGroup(node)
-            // TODO: add only mesh affected by light
-            this.buildShadowMaterialGroup(node)
+
+            if (node.castShadow) {
+                this.buildShadowMaterialGroup(node)
+            }
         }
 
         if (node.isLight) {
