@@ -13,7 +13,7 @@ import GLTFLoader from '../loader/gltf.js'
 
 import { DirectionalShadow } from '../scenes/Shadow.js'
 import gui from '../misc/gui.js'
-import { degreeToRadian, loadImageBitmap } from '../misc/utils.js'
+import { degreeToRadian } from '../misc/utils.js'
 import Vector3 from '../math/Vector3.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 
@@ -50,6 +50,7 @@ struct PointLight {
     constant: f32,
     linear: f32,
     quadratic: f32,
+
 };
 
 struct SpotLight {
@@ -59,11 +60,13 @@ struct SpotLight {
     strength: f32,
     innerLimit: f32,
     outerLimit: f32,
+    projectionView: mat4x4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> color: vec3f;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
 @group(0) @binding(2) var shadowSampler: sampler_comparison;
+@group(0) @binding(3) var mapSampler: sampler;
 @group(1) @binding(0) var<uniform> dirLight: DirectionalLight;
 @group(2) @binding(0) var<uniform> camera: Camera;
 @group(3) @binding(0) var<uniform> model: Model;
@@ -122,12 +125,16 @@ fn calc_spot_light(light: SpotLight, position: vec3f, normal: vec3f) -> vec3f
 )
     -> @location(0) vec4f 
 {
-    
-    var visibility = 0.;
-    visibility += textureSampleCompare(shadowMap, shadowSampler, 
-        input.lightViewPosition.xy, input.lightViewPosition.z - 0.005);
+    let uvw = input.lightViewPosition;
 
-    let _col = calc_directional_light(dirLight, input.normal) * visibility;
+    var visibility = textureSampleCompare(shadowMap, shadowSampler, 
+        uvw.xy, uvw.z - 0.007);
+
+    var _col = calc_directional_light(dirLight, input.normal);
+    if (uvw.x > 0. && uvw.x < 1. && uvw.y > 0 && uvw.y < 1.) {
+        _col *= visibility;
+    }
+
     return vec4f(_col, 1.);
 }
 `
@@ -175,11 +182,15 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
-    mainCamera.position.set(0, 30, 30)
+    mainCamera.position.set(0, 50, 30)
 
-    const boxGeo = GeometryLibs.createBox(2, 10, 2, 1, 1, 1)
-    const sphereGeo = GeometryLibs.createSphereCube(5, 10)
-    const gridGeo = GeometryLibs.createGrid(100, 5)
+    const dirShadow = new DirectionalShadow()
+    dirShadow.dimension = 20
+
+    const dirLight = new DirectionalLight()
+    dirLight.position.set(-10, 20, 20)
+    dirLight.shadow = dirShadow
+
     const planeGeo = GeometryLibs.createPlane(50, 50, 5, 5, { dir: "down" })
     const boxLineGeo = GeometryLibs.createBoxLine(2, 2, 2)
     const points = boxLineGeo.attributes[0].data
@@ -194,23 +205,23 @@ async function main() {
     })
     compareSampler.type = "comparison"
 
-    const dirShadow = new DirectionalShadow()
-
     const blueMaterial = MaterialLibs.unlit({ color: new Vector3(1, 1, 1) })
     blueMaterial.shader = phongShader
-    blueMaterial.addTexture(dirShadow.depthTexture)
+    blueMaterial.addTexture(dirLight.shadow.depthTexture)
     blueMaterial.addSampler(compareSampler)
 
-    const lineMaterial = MaterialLibs.line({ color: new Vector3(1, 1, 1) })
+    const lineMaterial = MaterialLibs.line({ color: new Vector3(1, 0, 0) })
 
     const shadowMaterial = new BaseMaterial("shadow map")
     shadowMaterial.shader = shadowShader
     shadowMaterial.fragmentEnabled = false
     shadowMaterial.depthFormat = "depth32float"
 
-    const sphere = new Mesh(sphereGeo, blueMaterial)
     const plane = new Mesh(planeGeo, blueMaterial)
+    plane.position.y = -3
+
     const boxLine = new Mesh(boxLineGeo, lineMaterial)
+    boxLine.castShadow = false
 
     const gltfLoader = new GLTFLoader()
     const gltf = await gltfLoader.load("../public/gltf", "monkey.gltf")
@@ -219,18 +230,10 @@ async function main() {
     monkey.parent = null
     monkey.scale.setUniform(5)
 
-    plane.position.y = -3
-    sphere.position.x = -10
-    monkey.position.x = 10
-
-    const dirLight = new DirectionalLight()
-    dirLight.position.set(-10, 20, 20)
-    dirLight.shadow = dirShadow
-
     const scene = new Scene()
-    scene.addNode(sphere)
     scene.addNode(plane)
     scene.addNode(monkey)
+    scene.addNode(boxLine)
     scene.addNode(dirLight)
 
     const renderGroups = instance.bindScene(scene, mainCamera)
@@ -242,7 +245,7 @@ async function main() {
     const spDesc = RenderPassDescriptorBuilder.clone()
     RenderPassDescriptorBuilder.disableColorAttachment(spDesc)
     RenderPassDescriptorBuilder.disableStencil(spDesc)
-    spDesc.depthStencilAttachment.view = dirShadow.depthTexture.GPUTexture.createView()
+    spDesc.depthStencilAttachment.view = dirLight.shadow.depthTexture.GPUTexture.createView()
 
     const rpDesc = RenderPassDescriptorBuilder.clone()
     rpDesc.colorAttachments[0].clearValue = [.3, .3, .4, 0]
@@ -250,12 +253,7 @@ async function main() {
 
     const updateWorld = () => {
         mainCamera.updateViewMatrix()
-
         dirLight.updateBuffer()
-
-        sphere.updateMatrixWorld()
-        sphere.updateNormalMatrix()
-        sphere.updateBuffer()
 
         plane.updateMatrixWorld()
         plane.updateNormalMatrix()
@@ -265,18 +263,18 @@ async function main() {
         monkey.updateNormalMatrix()
         monkey.updateBuffer()
 
-        // boxLine.localMatrix.copy(dirLight.projectionView).inverse()
-        // boxLine.updateWorldMatrix()
-        // boxLine.updateBuffer()
+        boxLine.localMatrix.copy(dirLight.shadow.projectionViewMatrix).inverse()
+        boxLine.updateWorldMatrix()
+        boxLine.updateBuffer()
     }
 
     const render = () => {
         updateWorld()
         instance
             .writeBuffer(mainCamera.buffer)
-            .writeBuffer(sphere.buffer)
             .writeBuffer(plane.buffer)
             .writeBuffer(monkey.buffer)
+            .writeBuffer(boxLine.buffer)
             .writeBuffer(dirLight.buffer)
 
         const encoder = instance.createCommandEncoder()
@@ -376,15 +374,15 @@ async function main() {
         render()
     }
 
-    const sphereControl = (v, p) => {
+    const meshControl = (v, p) => {
         if (p === 1) {
-            sphere.position.x = v
+            monkey.position.x = v
         }
         else if (p === 2) {
-            sphere.position.y = v
+            monkey.position.y = v
         }
         else if (p === 3) {
-            sphere.position.z = v
+            monkey.position.z = v
         }
         render()
     }
@@ -448,39 +446,39 @@ async function main() {
             ]
         },
         {
-            label: "Sphere",
+            label: "Mesh",
             fields: [
                 {
                     label: "Position X",
                     type: "range",
-                    value: sphere.position.x,
+                    value: monkey.position.x,
                     min: -20,
                     max: 20,
                     step: 1,
                     func(e) {
-                        sphereControl(Number(e), 1)
+                        meshControl(Number(e), 1)
                     }
                 },
                 {
                     label: "Position Y",
                     type: "range",
-                    value: sphere.position.x,
+                    value: monkey.position.x,
                     min: -20,
                     max: 20,
                     step: 1,
                     func(e) {
-                        sphereControl(Number(e), 2)
+                        meshControl(Number(e), 2)
                     }
                 },
                 {
                     label: "Position Z",
                     type: "range",
-                    value: sphere.position.x,
+                    value: monkey.position.x,
                     min: -20,
                     max: 20,
                     step: 1,
                     func(e) {
-                        sphereControl(Number(e), 3)
+                        meshControl(Number(e), 3)
                     }
                 }
             ]
