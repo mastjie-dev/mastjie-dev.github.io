@@ -10,6 +10,7 @@ class Mesh extends NodeCore {
         super(name)
         this.isMesh = true
         this.isBind = false
+        this.castShadow = true
         this.geometry = geometry
         this.material = material
 
