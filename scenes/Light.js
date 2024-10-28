@@ -70,7 +70,7 @@ class SpotLight extends Light {
         this.innerLimit = .9
         this.outerLimit = .7
 
-        this.buffer = new UniformBuffer(new Float32Array(16))
+        this.buffer = new UniformBuffer(new Float32Array(32))
     }
 
     updateBuffer() {
@@ -80,10 +80,14 @@ class SpotLight extends Light {
             ...this.position.toArray(), 0,
             ...direction.toArray(), 0,
             ...this.color.toArray(), this.strength,
-            this.innerLimit, this.outerLimit,
+            this.innerLimit, this.outerLimit, 0, 0,
         ]
-
         this.buffer.data.set(arr)
+
+        if (this.shadow) {
+            this.shadow.updateProjectionViewMatrix(this.position, this.target)
+            this.buffer.data.set(this.shadow.projectionViewMatrix.elements, 16)
+        }
     }
 }
 
