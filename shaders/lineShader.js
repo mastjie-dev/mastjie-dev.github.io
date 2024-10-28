@@ -5,6 +5,10 @@ struct VSOutput {
     @location(0) color: vec3f,
 };
 
+struct Scene {
+    time: f32,
+};
+
 struct Camera {
     projection: mat4x4<f32>,
     view: mat4x4<f32>,
@@ -16,8 +20,9 @@ struct Model {
 };
 
 @group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> camera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
+@group(1) @binding(0) var<uniform> scene: Scene;
+@group(2) @binding(0) var<uniform> camera: Camera;
+@group(3) @binding(0) var<uniform> model: Model;
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
