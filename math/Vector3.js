@@ -24,6 +24,14 @@ class Vector3 {
         this.x = array[0]
         this.y = array[1]
         this.z = array[2]
+        return this
+    }
+
+    setFromArrayIndex(array, index) {
+        this.x = array[index]
+        this.y = array[index + 1]
+        this.z = array[index + 2]
+        return this
     }
 
     toArray() {

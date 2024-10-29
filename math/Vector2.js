@@ -10,6 +10,18 @@ class Vector2 {
         this.y = y
         return this
     }
+    
+    setFromArray(array) {
+        this.x = array[0]
+        this.y = array[1]
+        return this
+    }
+
+    setFromArrayIndex(array, index) {
+        this.x = array[index]
+        this.y = array[index + 1]
+        return this
+    }
 
     toArray() {
         return [this.x, this.y]
