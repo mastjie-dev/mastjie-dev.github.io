@@ -19,6 +19,14 @@ class BaseMaterial {
         this.depthFormat = "depth24plus-stencil8"
         this.depthCompare = "less"
 
+        this.blend = false
+        this.blendColorOp = "add"
+        this.blendColorSrcFactor = "one"
+        this.blendColorDstFactor = "zero"
+        this.blendAlphaOp = "add"
+        this.blendAlphaSrcFactor = "one"
+        this.blendAlphaDstFactor = "zero"
+
         this.bindGroup = new BindGroup()
         this.bindGroupLayout = new BindGroupLayout()
 
