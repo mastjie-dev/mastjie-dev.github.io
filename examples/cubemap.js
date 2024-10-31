@@ -1,20 +1,25 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import BufferCore from '../cores/BufferCore.js'
-import { CubeTexture, DepthTexture} from '../cores/TextureCore.js'
+import { UniformBuffer } from '../cores/BufferCore.js'
+import { CubeTexture, DepthTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
-import VARS from '../cores/VARS.js'
-import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
+import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
 
+import Scene from '../scenes/Scene.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
-import GeometryUtils from '../scenes/GeometryUtils.js'
+import GeometryLibs from '../scenes/GeometryLibs.js'
+import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import { loadImageBitmap } from '../misc/utils.js'
 
-const unlitShader = `
+const cubeMapShader = `
 struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) normal: vec3f,
+};
+
+struct Scene {
+    time: f32,
 };
 
 struct Camera {
@@ -29,15 +34,16 @@ struct Model {
 
 @group(0) @binding(0) var cubeMap: texture_cube<f32>;
 @group(0) @binding(1) var mapSampler: sampler;
-@group(1) @binding(0) var<uniform> debugCamera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
+@group(1) @binding(0) var<uniform> scene: Scene;
+@group(2) @binding(0) var<uniform> camera: Camera;
+@group(3) @binding(0) var<uniform> model: Model;
 
 @vertex fn main_vertex(
     @location(0) position: vec3f
 ) -> VSOutput
 {
     var output: VSOutput;
-    output.position = debugCamera.projection * debugCamera.view * model.matrix * vec4f(position, 1.);
+    output.position = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
     output.normal = (model.matrix * vec4(position, 0.)).xyz;
     return output;
 }
@@ -52,44 +58,6 @@ struct Model {
 }
 `
 
-const lineShader = `
-struct VSOutput {
-    @builtin(position) position: vec4f,
-    @location(0) color: vec3f,
-};
-
-struct Camera {
-    projection: mat4x4<f32>,
-    view: mat4x4<f32>,
-};
-
-struct Model {
-    matrix: mat4x4<f32>,
-    normal: mat4x4<f32>,
-};
-
-@group(0) @binding(0) var<uniform> color: vec3f;
-@group(1) @binding(0) var<uniform> debugCamera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
-
-@vertex fn main_vertex(
-    @location(0) position: vec3f,
-) -> VSOutput
-{
-    var output: VSOutput;
-    output.position = debugCamera.projection * debugCamera.view * model.matrix * vec4f(position, 1.);
-    output.color = color;
-    return output;
-}
-
-@fragment fn main_fragment(
-    input: VSOutput,
-)
-    -> @location(0) vec4f 
-{
-    return vec4f(color, 1.);
-}
-`
 async function main() {
     const width = window.innerWidth
     const height = window.innerHeight
@@ -118,64 +86,37 @@ async function main() {
     ]
     const bitmaps = await Promise.all(images.map(loadImageBitmap))
 
-    const mainCamera = new PerspectiveCamera(50, width/height, .1, 1000)
-    mainCamera.position.set(5, -10, -10)
+    const camera = new PerspectiveCamera(50, width / height, .1, 1000)
+    camera.position.set(5, 10, 10)
 
-    const boxGeo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
-    const gridGeo = GeometryUtils.createGrid(100, 2)
+    const boxGeometry = GeometryLibs.createBox(2, 2, 2, 1, 1, 1)
+    const gridGeometry = GeometryLibs.createGrid(100, 3)
 
-    const blue = new BufferCore("blue", "uniform", new Float32Array([0, 0, 1]), VARS.Buffer.Uniform)
-    const white = new BufferCore("white", "uniform", new Float32Array([1, 1, 1]), VARS.Buffer.Uniform)
 
     const cubeTexture = new CubeTexture(bitmaps[0].width, bitmaps[0].height, bitmaps)
 
-    const blueMat = new BaseMaterial()
-    blueMat.shader = unlitShader
-    blueMat.addTexture(cubeTexture)
-    blueMat.addSampler(new SamplerCore())
+    const cubeMapMaterial = new BaseMaterial()
+    cubeMapMaterial.shader = cubeMapShader
+    cubeMapMaterial.addTexture(cubeTexture)
+    cubeMapMaterial.addSampler(new SamplerCore())
 
-    const whiteLineMat = new BaseMaterial()
-    whiteLineMat.shader = lineShader
-    whiteLineMat.topology = "line-list"
-    whiteLineMat.addBuffer(white)
+    const lineMaterial = MaterialLibs.line()
 
-    const box = new Mesh(boxGeo, blueMat)
-    const grid = new Mesh(gridGeo, whiteLineMat)
+    const box = new Mesh(boxGeometry, cubeMapMaterial)
+    box.scale.setUniform(2)
+    const grid = new Mesh(gridGeometry, lineMaterial)
 
-    const meshes = [box, grid]
+    const scene = new Scene()
+    scene.addNode(box)
+    scene.addNode(grid)
 
-    instance.bindMeshesResources(meshes)
-    instance.bindCamerasResource(mainCamera)
-
-    const renderObjects = meshes.map(mesh => {
-        const pl = instance.createPipelineLayout(
-            mesh.material.bindGroupLayout.GPUBindGroupLayout,
-            mainCamera.bindGroupLayout.GPUBindGroupLayout,
-            mesh.bindGroupLayout.GPUBindGroupLayout,
-        )
-
-        const desc = PipelineDescriptorBuilder
-            .start()
-            .layout(pl)
-            .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
-            .fragment(mesh.material.shaderModule, canvasFormat)
-            .depthStencil(
-                mesh.material.depthWriteEnabled,
-                mesh.material.depthFormat,
-                mesh.material.depthCompare
-            )
-            .primitive(mesh.material.cullMode, mesh.material.topology)
-            .end()
-
-        return instance.createRenderPipeline(mesh, desc)
-    })
-
-
-    const rpDesc = RenderPassDescriptorBuilder.start().end()
-    rpDesc.colorAttachments[0].clearValue = [.4, .4, .4, 0]
+    const groups = instance.bindScene(scene, camera)
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
+
+    const rpDesc = new RenderPassDescriptor()
+    rpDesc.setDSAView(depthTexture.GPUTexture.createView())
 
     const render = () => {
         box.rotation.x += .016
@@ -186,25 +127,30 @@ async function main() {
 
         const encoder = instance.createCommandEncoder()
 
-        rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
-        rpDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
-        const pass = encoder.beginRenderPass(rpDesc)
+        rpDesc.setCAView(context.getCurrentTexture().createView())
 
-        for (let rObj of renderObjects) {
-            pass.setPipeline(rObj.pipeline)
-            
-            let i = 0
-            for (let attr of rObj.mesh.geometry.attributes) {
-                pass.setVertexBuffer(i, attr.GPUBuffer)
-                ++i
+        const pass = encoder.beginRenderPass(rpDesc.get())
+        pass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
+        pass.setBindGroup(2, camera.bindGroup.GPUBindGroup)
+
+        for (let group of groups) {
+            pass.setPipeline(group.pipeline)
+            pass.setBindGroup(0, group.material)
+
+            for (let primitive of group.primitives) {
+                let i = 0
+                for (let attr of primitive.attributes) {
+                    pass.setVertexBuffer(i, attr)
+                    ++i
+                }
+
+                pass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+
+                for (let instance of primitive.instances) {
+                    pass.setBindGroup(3, instance.transform)
+                    pass.drawIndexed(primitive.indexLength)
+                }
             }
-
-            pass.setBindGroup(0, rObj.mesh.material.bindGroup.GPUBindGroup)
-            pass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
-            pass.setBindGroup(2, rObj.mesh.bindGroup.GPUBindGroup)
-            pass.setIndexBuffer(rObj.mesh.geometry.index.GPUBuffer,
-                rObj.mesh.geometry.index.format)
-            pass.drawIndexed(rObj.mesh.geometry.index.length)
         }
         pass.end()
 
@@ -222,14 +168,14 @@ async function main() {
         canvas.width = w
         canvas.height = h
 
-        mainCamera.aspect = w / h
-        mainCamera.updateProjectionMatrix()
+        camera.aspect = w / h
+        camera.updateProjectionMatrix()
 
         depthTexture.destroy()
         depthTexture.width = w
         depthTexture.height = h
 
-        instance.writeBuffer(mainCamera.buffer).createTexture(depthTexture)
+        instance.writeBuffer(camera.buffer).createTexture(depthTexture)
         render()
     })
 }

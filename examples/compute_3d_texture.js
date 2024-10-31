@@ -1,17 +1,17 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import BufferCore from '../cores/BufferCore.js'
-import { ExternalImageTexture, StorageTexture, CopyTargetTexture } from '../cores/TextureCore.js'
+import { UniformBuffer } from '../cores/BufferCore.js'
+import { ExternalImageTexture, StorageTexture, CopyTargetTexture, RenderTargetTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
-import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
-import VARS from '../cores/VARS.js'
+import RenderPassDescriptorBuilder from '../cores/RenderPassDescriptor.js'
 
+import Scene from '../scenes/Scene.js'
+import { OrthographicCamera } from '../scenes/Camera.js'
 import Compute from '../scenes/Compute.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
-import GeometryUtils from '../scenes/GeometryUtils.js'
-import BindGroup from '../cores/BindGroup.js'
-import BindGroupLayout from '../cores/BindGroupLayout.js'
-import { PipelineDescriptorBuilder } from '../cores/Builder.js'
+import GeometryLibs from '../scenes/GeometryLibs.js'
+import { loadImageBitmap } from '../misc/utils.js'
+import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -42,7 +42,7 @@ struct VSOutput {
     -> @location(0) vec4f 
 {
     let st = input.uv - .5;
-    let bn = textureSample(blue, smp, input.uv*10.).r;
+    let bn = textureSample(blue, smp, input.uv*8.).r;
 
     let ro = vec3f(0, 0, -3.);
     let rd = normalize(vec3f(st, 1.));
@@ -107,16 +107,71 @@ fn main_compute(
     textureStore(st3d, id, cl);
 }
 `
-// TODO: remove to misc
-async function loadImageBitmap(url) {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    return await createImageBitmap(blob, { colorSpaceConversion: 'none' })
+
+const postShader = `
+struct VSOutput {
+    @builtin(position) position: vec4f,
+    @location(0) uv: vec2f,
+};
+
+struct Scene {
+    time: f32,
+};
+
+struct Camera {
+    projection: mat4x4<f32>,
+    view: mat4x4<f32>,
+};
+
+struct Model {
+    matrix: mat4x4<f32>,
+    normal: mat4x4<f32>,
+};
+
+@group(0) @binding(0) var map: texture_2d<f32>;
+@group(0) @binding(1) var mapSampler: sampler;
+@group(1) @binding(0) var<uniform> scene: Scene;
+@group(2) @binding(0) var<uniform> camera: Camera;
+@group(3) @binding(0) var<uniform> model: Model;
+
+@vertex fn main_vertex(
+    @location(0) position: vec3f,
+    @location(1) normal: vec3f,
+    @location(2) uv: vec2f,
+) -> VSOutput
+{
+    var output: VSOutput;
+    output.position = camera.projection * camera.view * vec4f(position, 1.);
+    output.uv = uv;
+    return output;
 }
 
+@fragment fn main_fragment(
+    input: VSOutput,
+)
+    -> @location(0) vec4f 
+{
+    let tx = 1. / 256.;
+    var color = vec3f(0.);
+
+    color += textureSample(map, mapSampler, input.uv+vec2f(-tx, -tx)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(0  , -tx)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(tx , -tx)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(-tx,   0)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(0  ,   0)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(tx ,   0)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(-tx,  tx)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(0  ,  tx)).rgb;
+    color += textureSample(map, mapSampler, input.uv+vec2f(tx ,  tx)).rgb;
+    color /= 9.;
+
+    return vec4f(color, 1.);
+}
+`
+
 async function main() {
-    const width = 512//window.innerWidth
-    const height = 512//window.innerHeight
+    const width = window.innerWidth
+    const height = window.innerHeight
     const canvas = document.createElement("canvas")
     canvas.width = width
     canvas.height = height
@@ -141,56 +196,64 @@ async function main() {
     compute.shader = computeCode
     compute.setWorkgroups(32, 32, 32)
     compute.addTexture(volumeStorage)
-    instance.bindComputeResources(compute)
-    const comPPL = instance.createPipelineLayout(compute.bindGroupLayout.GPUBindGroupLayout)
-    instance.createComputePipeline(compute, comPPL)
 
-    const computeModule = instance.createShaderModule(computeCode)
-
-    const st3d = new StorageTexture(128, 128, 128, "3d")
-    instance.createAndWriteTexture(st3d)
+    instance.bindCompute(compute)
 
     /**
      *  Render Stage
      */
-    const image = document.createElement("img")
-    image.src = "/public/blue_noise.png"
-    const blueNoiseBitmap = await loadImageBitmap(image.src)
 
-    const geo = GeometryUtils.createPlane(2, 2, 1, 1)
+    const blueNoiseBitmap = await loadImageBitmap("../public/images/blue_noise.png")
 
-    const time = new BufferCore("time", "uniform", new Float32Array([0]), VARS.Buffer.Uniform)
+    const camera = new OrthographicCamera()
+    camera.position.z = 1
+
+    const geometry = GeometryLibs.createPlane(2, 2, 1, 1)
+
+    const time = new UniformBuffer(new Float32Array([0]))
     const worleyTexture = new CopyTargetTexture(128, 128, 128, "3d")
     const blueNoiseTexture = new ExternalImageTexture(blueNoiseBitmap.width,
         blueNoiseBitmap.height, blueNoiseBitmap)
 
-    const mat = new BaseMaterial()
-    mat.shader = shaderCode
-    mat.addBuffer(time)
-    mat.addTexture(worleyTexture)
-    mat.addTexture(blueNoiseTexture)
-    mat.addSampler(new SamplerCore("", { addressModeU: "mirror-repeat" }))
+    const material = new BaseMaterial()
+    material.shader = shaderCode
+    material.depthWriteEnabled = false
+    material.cullMode = "none"
 
-    const mesh = new Mesh(geo, mat)
-    instance.bindMeshesResources(mesh)
+    material.addBuffer(time)
+    material.addTexture(worleyTexture)
+    material.addTexture(blueNoiseTexture)
+    material.addSampler(new SamplerCore("", { addressModeU: "mirror-repeat" }))
 
-    const renderPipelineLayout = instance
-        .createPipelineLayout(mesh.material.bindGroupLayout.GPUBindGroupLayout)
+    const mesh = new Mesh(geometry, material)
+    const scene = new Scene()
+    scene.addNode(mesh)
+    const groups = instance.bindScene(scene, camera)
 
-    const pipelineDescriptor = PipelineDescriptorBuilder
-        .start()
-        .layout(renderPipelineLayout)
-        .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
-        .fragment(mesh.material.shaderModule, canvasFormat)
-        .end()
+    // Post processing
+    const v = 1
+    const h = 1 * width / height
+    const postCamera = new OrthographicCamera(-h, h, -v, v)
+    postCamera.position.z = 1
 
-    const renderObject = instance.createRenderPipeline(mesh, pipelineDescriptor)
+    const renderTarget = new RenderTargetTexture(512, 512)
+    const postMaterial = new BaseMaterial("post material")
+    postMaterial.shader = postShader
+    postMaterial.cullMode = "none"
+    postMaterial.depthWriteEnabled = false
+    postMaterial.addTexture(renderTarget)
+    postMaterial.addSampler(new SamplerCore())
 
-    const renderPassDescriptor = RenderPassDescriptorBuilder
-        .start()
-        .disableStencilAttachment()
-        .end()
-
+    const postQuad = new Mesh(geometry, postMaterial)
+    const postScene = new Scene()
+    postScene.addNode(postQuad)
+    const postGroups = instance.bindScene(postScene, postCamera)
+    
+    const mainRPD = new RenderPassDescriptor()
+    mainRPD.disableDepthStencilAttachment()
+    
+    const postRPD = new RenderPassDescriptor()
+    postRPD.disableDepthStencilAttachment()
 
     const encoder = instance.createCommandEncoder()
 
@@ -208,26 +271,54 @@ async function main() {
         instance.writeBuffer(time)
 
         const encoder = instance.createCommandEncoder()
+        
+        mainRPD.setCAView(renderTarget.GPUTexture.createView())
+        const mainPass = encoder.beginRenderPass(mainRPD.get())
 
-        renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
-        const renderPass = encoder.beginRenderPass(renderPassDescriptor)
+        const group = groups[0]
+        mainPass.setPipeline(group.pipeline)
+        mainPass.setBindGroup(0, group.material)
+        mainPass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
+        mainPass.setBindGroup(2, camera.bindGroup.GPUBindGroup)
 
-        renderPass.setPipeline(renderObject.pipeline)
+        const primitive = group.primitives[0]
+        mainPass.setBindGroup(3, primitive.instances[0].transform)
 
         let i = 0
-        for (let attr of mesh.geometry.attributes) {
-            renderPass.setVertexBuffer(i, attr.GPUBuffer)
+        for (let attr of primitive.attributes) {
+            mainPass.setVertexBuffer(i, attr)
             ++i
         }
 
-        renderPass.setBindGroup(0, mat.bindGroup.GPUBindGroup)
-        renderPass.setIndexBuffer(geo.index.GPUBuffer, geo.index.format)
-        renderPass.drawIndexed(geo.index.length)
-        renderPass.end()
+        mainPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+        mainPass.drawIndexed(primitive.indexLength)
+        mainPass.end()
+
+        postRPD.setCAView(context.getCurrentTexture().createView())
+        const postPass = encoder.beginRenderPass(postRPD.get())
+
+        const postGroup = postGroups[0]
+        postPass.setPipeline(postGroup.pipeline)
+        postPass.setBindGroup(0, postGroup.material)
+        postPass.setBindGroup(1, postScene.bindGroup.GPUBindGroup)
+        postPass.setBindGroup(2, postCamera.bindGroup.GPUBindGroup)
+
+        const _primitive = postGroup.primitives[0]
+        postPass.setBindGroup(3, _primitive.instances[0].transform)
+
+        i = 0
+        for (let attr of _primitive.attributes) {
+            postPass.setVertexBuffer(i, attr)
+            ++i
+        }
+
+        postPass.setIndexBuffer(_primitive.indexBuffer, _primitive.indexFormat)
+        postPass.drawIndexed(_primitive.indexLength)
+        postPass.end()
 
         instance.submitEncoder([encoder.finish()])
-        
-        requestAnimationFrame(render)
+
+        // requestAnimationFrame(render)
     }
     render()
 

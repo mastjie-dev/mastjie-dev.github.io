@@ -1,21 +1,24 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import BufferCore from '../cores/BufferCore.js'
+import { ReadOnlyStorageBuffer, StorageBuffer, UniformBuffer } from '../cores/BufferCore.js'
 import { DepthTexture } from '../cores/TextureCore.js'
-import VARS from '../cores/VARS.js'
+import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
 
+import Scene from '../scenes/Scene.js'
+import Compute from '../scenes/Compute.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import Mesh from '../scenes/Mesh.js'
-import GeometryUtils from '../scenes/GeometryUtils.js'
+import GeometryLibs from '../scenes/GeometryLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
-import BindGroup from '../cores/BindGroup.js'
-import BindGroupLayout from '../cores/BindGroupLayout.js'
-import { PipelineDescriptorBuilder, RenderPassDescriptorBuilder } from '../cores/Builder.js'
 import Stats from '../misc/Stats.js'
 
 const shaderCode = `
 struct VSOutput {
     @builtin(position) position: vec4f,
     @location(0) uv: vec2f,
+};
+
+struct Scene {
+    time: f32,
 };
 
 struct Camera {
@@ -30,8 +33,9 @@ struct Model {
 
 @group(0) @binding(0) var<uniform> color: vec3f;
 @group(0) @binding(1) var<storage, read> pos: array<vec3f>;
-@group(1) @binding(0) var<uniform> camera: Camera;
-@group(2) @binding(0) var<uniform> model: Model;
+@group(1) @binding(1) var<uniform> scene: Scene;
+@group(2) @binding(0) var<uniform> camera: Camera;
+@group(3) @binding(0) var<uniform> model: Model;
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
@@ -56,9 +60,9 @@ struct Model {
 }
 `
 
-const computeCode = `
-@group(0) @binding(0) var<storage, read_write> pos: array<vec3f>;
-@group(0) @binding(1) var<uniform> time: f32;
+const computeShader = `
+@group(0) @binding(0) var<uniform> time: f32;
+@group(0) @binding(1) var<storage, read_write> pos: array<vec3f>;
 
 @compute @workgroup_size(1) 
 fn main_compute(
@@ -71,18 +75,6 @@ fn main_compute(
     pos[i] = vec3f(x, y, 0);
 }
 `
-
-function bindResource(instance, owner, resource) {
-    if (!resource.GPUBuffer) {
-        instance.createAndWriteBuffer(resource)
-    }
-
-    instance
-        .createBindGroupLayoutEntries(resource, owner.bindGroupLayout.entries)
-        .createBindGroupLayout(owner, owner.bindGroupLayout.entries)
-        .createBindGroupEntries(resource, owner.bindGroup.entries)
-        .createBindGroup(owner, owner.bindGroup.entries)
-}
 
 async function main() {
     const width = window.innerWidth
@@ -102,122 +94,94 @@ async function main() {
         format: canvasFormat
     })
 
-    const computeModule = instance.createShaderModule(computeCode)
-
     const storageData = new Float32Array(4)
-    const inBuffer = new BufferCore("position in", "storage", storageData, VARS.Buffer.Storage)
-    const timeBuffer = new BufferCore("time", "uniform", new Float32Array(1), VARS.Buffer.Uniform)
-    timeBuffer.visibility = GPUShaderStage.COMPUTE
+    const storageBuffer = new StorageBuffer(storageData)
+    const uniformBuffer = new UniformBuffer(new Float32Array(1))
+    uniformBuffer.visibility = GPUShaderStage.COMPUTE
 
-    const computeObject = {
-        bindGroup: new BindGroup(),
-        bindGroupLayout: new BindGroupLayout(),
-        pipeline: null,
-        workgroups: [1, 1, 1],
-    }
-
-    bindResource(instance, computeObject, inBuffer)
-    bindResource(instance, computeObject, timeBuffer)
-
-    const computePL = instance.createPipelineLayout(computeObject.bindGroupLayout.GPUBindGroupLayout)
-    instance.createComputePipeline(computeObject, computePL, computeModule)
-
-    const geo = GeometryUtils.createBox(2, 2, 2, 1, 1, 1)
-
-    const outBuffer = new BufferCore("position out", "read-only-storage", storageData, VARS.Buffer.Storage)
-    outBuffer.usage -= GPUBufferUsage.COPY_SRC
-    outBuffer.visibility = GPUShaderStage.VERTEX
-
-    const mat = new BaseMaterial()
-    mat.shader = shaderCode
-    mat.addBuffer(new BufferCore("blue", "uniform",
-        new Float32Array([0, 0, 1]), VARS.Buffer.Uniform))
-    mat.addBuffer(outBuffer)
-
-    const mesh = new Mesh(geo, mat)
-    mesh.updateMatrixWorld()
-    mesh.updateBuffer()
+    const compute = new Compute()
+    compute.shader = computeShader
+    compute.addBuffer(uniformBuffer)
+    compute.addBuffer(storageBuffer)
+    instance.bindCompute(compute)
 
     const camera = new PerspectiveCamera(75, width / height)
     camera.position.set(0, -2, -5)
-    camera.updateProjectionMatrix()
-    camera.updateViewMatrix()
 
-    instance.bindCamerasResource(camera)
-    instance.bindMeshesResources(mesh)
+    const geometry = GeometryLibs.createBox(2, 2, 2, 1, 1, 1)
+    const readBuffer = new ReadOnlyStorageBuffer(storageData)
 
-    const renderPL = instance.createPipelineLayout(
-        mesh.material.bindGroupLayout.GPUBindGroupLayout,
-        camera.bindGroupLayout.GPUBindGroupLayout,
-        mesh.bindGroupLayout.GPUBindGroupLayout,
-    )
-    const rpDesc = PipelineDescriptorBuilder
-        .start()
-        .layout(renderPL)
-        .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
-        .fragment(mesh.material.shaderModule, canvasFormat)
-        .primitive(mesh.material.cullMode)
-        .depthStencil(
-            mesh.material.depthWriteEnabled,
-            mesh.material.depthFormat,
-            mesh.material.depthCompare
-        )
-        .end()
+    const material = new BaseMaterial()
+    material.shader = shaderCode
+    material.addBuffer(new UniformBuffer(new Float32Array([1, 1, 1])))
+    material.addBuffer(readBuffer)
 
-    const renderObject = instance.createRenderPipeline(mesh, rpDesc)
-    const renderPassDescriptor = RenderPassDescriptorBuilder.start().end()
+    const mesh = new Mesh(geometry, material)
+
+    const scene = new Scene()
+    scene.addNode(mesh)
+
+    const groups = instance.bindScene(scene, camera)
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
 
-    const rawBuffer = new BufferCore("test", "uniform", storageData, {
-        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-        visibility: GPUShaderStage.FRAGMENT,
-    })
-    instance.createBuffer(rawBuffer)
+    const rpDesc = new RenderPassDescriptor()
+    rpDesc.setDSAView(depthTexture.GPUTexture.createView())
 
     const stats = new Stats()
 
     const render = (time) => {
         const start = performance.now()
+        uniformBuffer.data[0] += .016
+        instance.writeBuffer(uniformBuffer)
 
         const encoder = instance.createCommandEncoder()
 
-        timeBuffer.data[0] += .016
-        instance.writeBuffer(timeBuffer)
-
+        // compute pass
         const computePass = encoder.beginComputePass()
-        computePass.setPipeline(computeObject.pipeline)
-        computePass.setBindGroup(0, computeObject.bindGroup.GPUBindGroup)
-        computePass.dispatchWorkgroups(...computeObject.workgroups)
+        computePass.setPipeline(compute.pipeline)
+        computePass.setBindGroup(0, compute.bindGroup.GPUBindGroup)
+        computePass.dispatchWorkgroups(...compute.workgroups)
         computePass.end()
 
-        instance.copyBufferToBuffer(encoder, inBuffer, outBuffer)
+        instance.copyBufferToBuffer(encoder, storageBuffer, readBuffer)
 
-        renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
-        renderPassDescriptor.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
+        // render pass
+        rpDesc.setCAView(context.getCurrentTexture().createView())
+        const renderPass = encoder.beginRenderPass(rpDesc.get())
 
-        const renderPass = encoder.beginRenderPass(renderPassDescriptor)
-        renderPass.setPipeline(renderObject.pipeline)
+        renderPass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
+        renderPass.setBindGroup(2, camera.bindGroup.GPUBindGroup)
 
-        let i = 0
-        for (let attr of mesh.geometry.attributes) {
-            renderPass.setVertexBuffer(i, attr.GPUBuffer)
-            ++i
+        for (let group of groups) {
+            renderPass.setPipeline(group.pipeline)
+            renderPass.setBindGroup(0, group.material)
+
+            for (let primitive of group.primitives) {
+                renderPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+
+                let i = 0
+                for (let attr of primitive.attributes) {
+                    renderPass.setVertexBuffer(i, attr)
+                    ++i
+                }
+
+                for (let instance of primitive.instances) {
+                    renderPass.setBindGroup(3, instance.transform)
+                    renderPass.drawIndexed(primitive.indexLength, instance.count)
+                }
+            }
+
         }
 
-        renderPass.setBindGroup(0, mat.bindGroup.GPUBindGroup)
-        renderPass.setBindGroup(1, camera.bindGroup.GPUBindGroup)
-        renderPass.setBindGroup(2, mesh.bindGroup.GPUBindGroup)
-        renderPass.setIndexBuffer(geo.index.GPUBuffer, geo.index.format)
-        renderPass.drawIndexed(geo.index.length)
         renderPass.end()
 
         instance.submitEncoder([encoder.finish()])
 
         const end = performance.now()
         stats.update(time, end - start)
-        requestAnimationFrame(render)
+        // requestAnimationFrame(render)
     }
     requestAnimationFrame(render)
 

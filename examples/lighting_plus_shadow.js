@@ -1,7 +1,7 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import { DepthTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
-import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
+import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
 
 import Scene from '../scenes/Scene.js'
 import Mesh from '../scenes/Mesh.js'
@@ -242,14 +242,14 @@ async function main() {
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
 
-    const spDesc = RenderPassDescriptorBuilder.clone()
-    RenderPassDescriptorBuilder.disableColorAttachment(spDesc)
-    RenderPassDescriptorBuilder.disableStencil(spDesc)
-    spDesc.depthStencilAttachment.view = dirLight.shadow.depthTexture.GPUTexture.createView()
+    const spDesc = new RenderPassDescriptor()
+    spDesc.disableColorAttachment()
+    spDesc.disableStencil()
+    spDesc.setDSAView(dirLight.shadow.depthTexture.GPUTexture.createView())
 
-    const rpDesc = RenderPassDescriptorBuilder.clone()
-    rpDesc.colorAttachments[0].clearValue = [.3, .3, .4, 0]
-    rpDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
+    const rpDesc = new RenderPassDescriptor()
+    rpDesc.setDSAView(depthTexture.GPUTexture.createView())
+    rpDesc.setClearValue(.2, .2, .5, 1)
 
     const updateWorld = () => {
         mainCamera.updateViewMatrix()
@@ -280,7 +280,7 @@ async function main() {
         const encoder = instance.createCommandEncoder()
 
         // shadow scene
-        const sPass = encoder.beginRenderPass(spDesc)
+        const sPass = encoder.beginRenderPass(spDesc.get())
         sPass.setBindGroup(0, scene.bindGroup.GPUBindGroup)
         sPass.setPipeline(shadowGroups.pipeline)
 
@@ -296,8 +296,8 @@ async function main() {
         sPass.end()
 
         // main scene
-        rpDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
-        const mPass = encoder.beginRenderPass(rpDesc)
+        rpDesc.setCAView(context.getCurrentTexture().createView())
+        const mPass = encoder.beginRenderPass(rpDesc.get())
         mPass.setBindGroup(2, mainCamera.bindGroup.GPUBindGroup)
         mPass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
 
@@ -314,8 +314,8 @@ async function main() {
 
                 mPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
 
-                for (let transform of primitive.transforms) {
-                    mPass.setBindGroup(3, transform)
+                for (let instance of primitive.instances) {
+                    mPass.setBindGroup(3, instance.transform)
                     mPass.drawIndexed(primitive.indexLength)
                 }
             }

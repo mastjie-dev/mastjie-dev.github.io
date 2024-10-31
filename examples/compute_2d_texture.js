@@ -1,15 +1,14 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import { StorageTexture, CopyTargetTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
-import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
+import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
 
-import BaseMaterial from '../scenes/BaseMaterial.js'
+import Scene from '../scenes/Scene.js'
+import { OrthographicCamera } from '../scenes/Camera.js'
 import Mesh from '../scenes/Mesh.js'
-import GeometryUtils from '../scenes/GeometryUtils.js'
-import BindGroup from '../cores/BindGroup.js'
-import BindGroupLayout from '../cores/BindGroupLayout.js'
+import GeometryLibs from '../scenes/GeometryLibs.js'
+import BaseMaterial from '../scenes/BaseMaterial.js'
 import Compute from '../scenes/Compute.js'
-import { PipelineDescriptorBuilder } from '../cores/Builder.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -17,8 +16,25 @@ struct VSOutput {
     @location(0) uv: vec2f,
 };
 
+struct Scene {
+    time: f32,
+};
+
+struct Camera {
+    projection: mat4x4<f32>,
+    view: mat4x4<f32>,
+};
+
+struct Model {
+    matrix: mat4x4<f32>,
+    normal: mat4x4<f32>,
+};
+
 @group(0) @binding(0) var map: texture_2d<f32>;
 @group(0) @binding(1) var smp: sampler;
+@group(1) @binding(0) var<uniform> scene: Scene;
+@group(2) @binding(0) var<uniform> camera: Camera;
+@group(3) @binding(0) var<uniform> model: Model;
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
@@ -26,8 +42,9 @@ struct VSOutput {
     @location(2) uv: vec2f,
 ) -> VSOutput
 {
+
     var output: VSOutput;
-    output.position = vec4f(position, 1.);
+    output.position = camera.projection * camera.view * model.matrix * vec4f(position, 1.);
     output.uv = uv;
     return output;
 }
@@ -98,75 +115,79 @@ async function main() {
      *  Compute Stage
      */
     const worleyStorage = new StorageTexture(256, 256)
-    
+
     const compute = new Compute()
     compute.shader = computeCode
     compute.setWorkgroups(32, 32)
     compute.addTexture(worleyStorage)
 
-    instance.bindComputeResources(compute)
-    const comPPL = instance.createPipelineLayout(compute.bindGroupLayout.GPUBindGroupLayout)
-    instance.createComputePipeline(compute, comPPL)
+    instance.bindCompute(compute)
 
     /**
      *  Render Stage
      */
     const worleyTexture = new CopyTargetTexture(256, 256)
 
-    const geo = GeometryUtils.createPlane(2, 2)
-    const mat = new BaseMaterial()
-    mat.shader = shaderCode
-    mat.addTexture(worleyTexture)
-    mat.addSampler(new SamplerCore())
+    const v = 2
+    const h = v * width / height
+    const camera = new OrthographicCamera(-h, h, -v, v)
+    camera.position.z = 1
 
-    const mesh = new Mesh(geo, mat)
+    const geometry = GeometryLibs.createPlane(2, 2)
+    const material = new BaseMaterial()
+    material.shader = shaderCode
+    material.depthWriteEnabled = false
+    material.cullMode = "none"
+    material.addTexture(worleyTexture)
+    material.addSampler(new SamplerCore())
 
-    instance.bindMeshesResources(mesh)
+    const mesh = new Mesh(geometry, material)
 
-    const renderPipelineLayout = instance
-        .createPipelineLayout(mesh.material.bindGroupLayout.GPUBindGroupLayout)
+    const scene = new Scene()
+    scene.addNode(mesh)
 
-    const pipelineDescriptor = PipelineDescriptorBuilder
-        .start()
-        .layout(renderPipelineLayout)
-        .vertex(mesh.material.shaderModule, mesh.geometry.vertexBufferLayout)
-        .fragment(mesh.material.shaderModule, canvasFormat)
-        .end()
+    const groups = instance.bindScene(scene, camera)
 
-    const renderObject = instance.createRenderPipeline(mesh, pipelineDescriptor)
+    const rpDesc = new RenderPassDescriptor()
+    rpDesc.disableDepthStencilAttachment()
 
-    const renderPassDescriptor = RenderPassDescriptorBuilder
-        .start()
-        .disableStencilAttachment()
-        .end()
+    const render = () => {
+        const encoder = instance.createCommandEncoder()
 
-    const encoder = instance.createCommandEncoder()
+        const computePass = encoder.beginComputePass()
+        computePass.setPipeline(compute.pipeline)
+        computePass.setBindGroup(0, compute.bindGroup.GPUBindGroup)
+        computePass.dispatchWorkgroups(...compute.workgroups)
+        computePass.end()
 
-    const computePass = encoder.beginComputePass()
-    computePass.setPipeline(compute.pipeline)
-    computePass.setBindGroup(0, compute.bindGroup.GPUBindGroup)
-    computePass.dispatchWorkgroups(...compute.workgroups)
-    computePass.end()
+        instance.copyTextureToTexture(encoder, worleyStorage, worleyTexture)
 
-    instance.copyTextureToTexture(encoder, worleyStorage, worleyTexture)
+        rpDesc.setCAView(context.getCurrentTexture().createView())
+        const renderPass = encoder.beginRenderPass(rpDesc.get())
 
-    renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
+        const group = groups[0]
+        renderPass.setPipeline(group.pipeline)
+        renderPass.setBindGroup(0, group.material)
+        renderPass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
+        renderPass.setBindGroup(2, camera.bindGroup.GPUBindGroup)
 
-    const renderPass = encoder.beginRenderPass(renderPassDescriptor)
-    renderPass.setPipeline(renderObject.pipeline)
+        const primitive = group.primitives[0]
+        renderPass.setBindGroup(3, primitive.instances[0].transform)
+    
+        let i = 0
+        for (let attr of primitive.attributes) {
+            renderPass.setVertexBuffer(i, attr)
+            ++i
+        }
 
-    let i = 0
-    for (let attr of mesh.geometry.attributes) {
-        renderPass.setVertexBuffer(i, attr.GPUBuffer)
-        ++i
+        renderPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+        renderPass.drawIndexed(primitive.indexLength, primitive.instances[0].count)
+        renderPass.end()
+
+        instance.submitEncoder([encoder.finish()])
     }
+    render()
 
-    renderPass.setBindGroup(0, mat.bindGroup.GPUBindGroup)
-    renderPass.setIndexBuffer(geo.index.GPUBuffer, geo.index.format)
-    renderPass.drawIndexed(geo.index.length)
-    renderPass.end()
-
-    instance.submitEncoder([encoder.finish()])
 
     document.body.appendChild(canvas)
 }

@@ -1,6 +1,6 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
 import { DepthTexture } from '../cores/TextureCore.js'
-import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
+import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
 
 import Scene from '../scenes/Scene.js'
 import Mesh from '../scenes/Mesh.js'
@@ -30,13 +30,17 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
-    mainCamera.position.set(5, 10, 20)
+    mainCamera.position.set(0, 10, 20)
 
     const boxGeo = GeometryLibs.createBox(2, 2, 2, 1, 1, 1)
     const sphereGeo = GeometryLibs.createSphereCube(1.5, 12)
     const gridGeo = GeometryLibs.createGrid(100, 5)
 
     const unlitMaterial = MaterialLibs.unlit({ color: new Vector3(0, 0, 1) })
+    // unlitMaterial.blend = true
+    // unlitMaterial.blendColorSrcFactor = "one"
+    // unlitMaterial.blendColorDstFactor = "one"
+
     const lineMaterial = MaterialLibs.line()
 
     const box = new Mesh(boxGeo, unlitMaterial, "box")
@@ -45,9 +49,9 @@ async function main() {
     const grid = new Mesh(gridGeo, lineMaterial, "grid")
 
     const gltfLoader = new GLTFLoader()
-    const gltf = await gltfLoader.load("../public/gltf", "helmet.gltf")
-    // const robot = gltf[0]
-    // robot.scale.setUniform(2)
+    const gltf = await gltfLoader.load("../public/gltf", "monkey.gltf")
+    const robot = gltf[0]
+    robot.scale.setUniform(2)
 
     right.position.set(5, 5, 0)
     left.position.set(-5, 5, 0)
@@ -55,44 +59,45 @@ async function main() {
     box.addChild(right)
 
     const scene = new Scene()
-    scene.add(box)
-    scene.add(grid)
+    scene.addNode(box)
+    scene.addNode(grid)
 
-    const renderObjects = instance.bindScene(scene, mainCamera)
-    console.log(renderObjects)
+    const groups = instance.bindScene(scene, mainCamera)
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
 
-    const rpd = RenderPassDescriptorBuilder.start().end()
-    rpd.colorAttachments[0].clearValue = [.5, .5, .5, 1]
+    const descriptor = new RenderPassDescriptor()
+    // descriptor.setClearValue(.6, .3, .3, .5)
+    descriptor.setDSAView(depthTexture.GPUTexture.createView())
 
     const render = () => {
+        instance.writeBuffer(mainCamera.buffer)
+
         const encoder = instance.createCommandEncoder()
 
-        rpd.colorAttachments[0].view = context.getCurrentTexture().createView()
-        rpd.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
+        descriptor.setCAView(context.getCurrentTexture().createView())
 
-        const pass = encoder.beginRenderPass(rpd)
-        pass.setBindGroup(1, mainCamera.bindGroup.GPUBindGroup)
+        const pass = encoder.beginRenderPass(descriptor.get())
+        pass.setBindGroup(2, mainCamera.bindGroup.GPUBindGroup)
+        pass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
 
-        for (let obj of renderObjects) {
-            pass.setPipeline(obj.instance)
-            pass.setBindGroup(0, obj.material.bindGroup.GPUBindGroup)
+        for (let group of groups) {
+            pass.setPipeline(group.pipeline)
+            pass.setBindGroup(0, group.material)
 
-            for (let primitive of obj.primitives) {
+            for (let primitive of group.primitives) {
                 let i = 0
-                for (let attr of primitive.geometry.attributes) {
-                    pass.setVertexBuffer(i, attr.GPUBuffer)
-                    i++
+                for (let attr of primitive.attributes) {
+                    pass.setVertexBuffer(i, attr)
+                    ++i
                 }
 
-                pass.setIndexBuffer(primitive.geometry.index.GPUBuffer,
-                    primitive.geometry.index.format)
-                
-                for (let mesh of primitive.meshes) {
-                    pass.setBindGroup(2, mesh.bindGroup.GPUBindGroup)
-                    pass.drawIndexed(primitive.geometry.index.length)
+                pass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+
+                for (let instance of primitive.instances) {
+                    pass.setBindGroup(3, instance.transform)
+                    pass.drawIndexed(primitive.indexLength, instance.instanceCount)
                 }
             }
         }
