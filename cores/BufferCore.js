@@ -66,4 +66,14 @@ class StorageBuffer extends BufferCore {
   }
 }
 
-export { BufferCore, VertexBuffer, IndexBuffer, UniformBuffer, StorageBuffer }
+class ReadOnlyStorageBuffer extends BufferCore {
+  constructor(data) {
+    super("read-only-storage", data)
+
+    this.usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    this.visibility = GPUShaderStage.VERTEX
+  }
+}
+
+export { BufferCore, VertexBuffer, IndexBuffer,
+  UniformBuffer, StorageBuffer, ReadOnlyStorageBuffer }
