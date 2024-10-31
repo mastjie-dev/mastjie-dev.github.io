@@ -29,10 +29,27 @@ class PipelineCore {
         }
 
         if (this.material.fragmentEnabled) {
+            // TODO: multiple targets
+            const zero = {
+                format: this.format,
+                blend:  !this.material.blend ? undefined : {
+                    color: {
+                        operation: this.material.blendColorOp,
+                        srcFactor: this.material.blendColorSrcFactor,
+                        dstFactor: this.material.blendColorDstFactor,
+                    },
+                    alpha: {
+                        operation: this.material.blendAlphaOp,
+                        srcFactor: this.material.blendAlphaSrcFactor,
+                        dstFactor: this.material.blendAlphaDstFactor,
+                    },
+                }
+            }
+
             descriptor.fragment = {
                 module: this.material.shaderModule,
                 entryPoint: "main_fragment",
-                targets: [{ format: this.format }]
+                targets: [zero]
             }
         }
 
