@@ -293,25 +293,30 @@ class WebGPUInstance {
         )
     }
 
-    bindComputeResources(compute) {
+    bindCompute(compute) {
         const { buffers, textures, shader } = compute
 
         compute.shaderModule = this.createShaderModule(shader)
 
         buffers.forEach(buffer => {
-            this.createAndWriteBuffer(buffer)
-                .createBindGroupLayoutEntries(buffer, compute.bindGroupLayout.entries)
-                .createBindGroupEntries(buffer, compute.bindGroup.entries)
+            this.createBuffer(buffer)
+                .writeBuffer(buffer)
+                .createBindGroupLayoutEntries(buffer, compute)
+                .createBindGroupEntries(buffer, compute)
         })
 
         textures.forEach(texture => {
-            this.createAndWriteTexture(texture)
-                .createBindGroupLayoutEntries(texture, compute.bindGroupLayout.entries)
-                .createBindGroupEntries(texture, compute.bindGroup.entries)
+            this.createTexture(texture)
+                .writeTexture(texture)
+                .createBindGroupLayoutEntries(texture, compute)
+                .createBindGroupEntries(texture, compute)
         })
 
-        this.createBindGroupLayout(compute, compute.bindGroupLayout.entries)
-            .createBindGroup(compute, compute.bindGroup.entries)
+        this.createBindGroupLayout(compute)
+            .createBindGroup(compute)
+
+        const pipelineLayout = this.createPipelineLayout(compute)
+        this.createComputePipeline(compute, pipelineLayout)
     }
 
     bindMesh(mesh) {
@@ -437,8 +442,12 @@ class WebGPUInstance {
                 const indexFormat = geometry.index.format
                 const indexLength = geometry.index.length
 
-                const transforms = meshes.map(mesh => {
-                    return mesh.bindGroup.GPUBindGroup
+                const instances = meshes.map(mesh => {
+                    const count = mesh.isInstanceMesh ? mesh.count : 1
+                    return {
+                        count,
+                        transform: mesh.bindGroup.GPUBindGroup
+                    }
                 })
 
                 return {
@@ -446,7 +455,7 @@ class WebGPUInstance {
                     indexBuffer,
                     indexFormat,
                     indexLength,
-                    transforms,
+                    instances,
                 }
             })
 
