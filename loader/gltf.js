@@ -1,11 +1,11 @@
-import { VertexBuffer, IndexBuffer, UniformBuffer } from "../cores/BufferCore"
-import BaseGeometry from "../scenes/BaseGeometry"
-import BaseMaterial from "../scenes/BaseMaterial"
-import MaterialLibs from "../scenes/MaterialLibs"
-import Mesh from "../scenes/Mesh"
+import { VertexBuffer, IndexBuffer, UniformBuffer } from "../cores/BufferCore.js"
+import BaseGeometry from "../scenes/BaseGeometry.js"
+import BaseMaterial from "../scenes/BaseMaterial.js"
+import MaterialLibs from "../scenes/MaterialLibs.js"
+import Mesh from "../scenes/Mesh.js"
 
-import NodeCore from "../scenes/NodeCore"
-import unlitShader from "../shaders/unlitShader"
+import NodeCore from "../scenes/NodeCore.js"
+import unlitShader from "../shaders/unlitShader.js"
 
 const COMPONENT_TYPE = {
     INT8: 5120,

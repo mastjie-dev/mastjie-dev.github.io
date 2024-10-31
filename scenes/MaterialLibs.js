@@ -1,6 +1,6 @@
 import BaseMaterial from "./BaseMaterial.js"
 import {UniformBuffer} from "../cores/BufferCore.js"
-import Vector3 from "../math/Vector3"
+import Vector3 from "../math/Vector3.js"
 
 import unlitShader from '../shaders/unlitShader.js'
 import lineShader from '../shaders/lineShader.js'
