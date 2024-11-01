@@ -35,9 +35,9 @@ class DirectionalShadow {
 
 class SpotShadow {
     constructor() {
-        this.fov = degreeToRadian(30)
+        this.fov = degreeToRadian(75)
         this.aspect = 1
-        this.near = 1
+        this.near = .5
         this.far = 200
         this.mapSize = 1024
         this.bias = .007
