@@ -323,6 +323,7 @@ class WebGPUInstance {
         mesh.updateMatrixWorld()
 
         if (mesh.isMesh && !mesh.isBind) {
+            mesh.updateNormalMatrix()
             mesh.updateBuffer()
             mesh.isBind = true
 
@@ -488,14 +489,20 @@ class WebGPUInstance {
             const indexFormat = geometry.index.format
             const indexLength = geometry.index.length
 
-            const transforms = meshes.map(_ => _.bindGroup.GPUBindGroup)
+            const instances = meshes.map(mesh => {
+                const count = mesh.isInstanceMesh ? mesh.count : 1
+                return {
+                    count,
+                    transform: mesh.bindGroup.GPUBindGroup
+                }
+            })
 
             return {
                 positionBuffer,
                 indexBuffer,
                 indexFormat,
                 indexLength,
-                transforms
+                instances,
             }
         })
 
