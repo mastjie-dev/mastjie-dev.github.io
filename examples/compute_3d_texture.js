@@ -2,7 +2,6 @@ import WebGPUInstance from '../cores/WebGPUInstance.js'
 import { UniformBuffer } from '../cores/BufferCore.js'
 import { ExternalImageTexture, StorageTexture, CopyTargetTexture, RenderTargetTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
-import RenderPassDescriptorBuilder from '../cores/RenderPassDescriptor.js'
 
 import Scene from '../scenes/Scene.js'
 import { OrthographicCamera } from '../scenes/Camera.js'
@@ -12,6 +11,7 @@ import Mesh from '../scenes/Mesh.js'
 import GeometryLibs from '../scenes/GeometryLibs.js'
 import { loadImageBitmap } from '../misc/utils.js'
 import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
+import Stats from '../misc/Stats.js'
 
 const shaderCode = `
 struct VSOutput {
@@ -19,10 +19,76 @@ struct VSOutput {
     @location(0) uv: vec2f,
 };
 
-@group(0) @binding(0) var<uniform> time: f32;
+struct MaterialBuffer {
+    colorA: vec3f,
+    colorB: vec3f,
+    boxSize: vec3f,
+    time: f32,
+};
+
+@group(0) @binding(0) var<uniform> matBuffer: MaterialBuffer;
 @group(0) @binding(1) var worley: texture_3d<f32>;
 @group(0) @binding(2) var blue: texture_2d<f32>;
 @group(0) @binding(3) var smp: sampler;
+
+fn rotateX(theta: f32) -> mat3x3<f32> {
+    let c = cos(theta);
+    let s = sin(theta);
+
+    return mat3x3(
+        vec3f(1, 0, 0),
+        vec3f(0, c, -s),
+        vec3f(0, s, c)
+    );
+};
+
+fn rotateY (theta: f32) -> mat3x3<f32> {
+    let c = cos(theta);
+    let s = sin(theta);
+
+    return mat3x3(
+        vec3f(c, 0, s),
+        vec3f(0, 1, 0),
+        vec3f(-s, 0, c)
+    );
+};
+
+fn rotateZ(theta: f32) -> mat3x3<f32> {
+    let c = cos(theta);
+    let s = sin(theta);
+
+    return mat3x3(
+        vec3f(c, -s, 0),
+        vec3f(s, c, 0),
+        vec3f(0, 0, 1)
+    );
+};
+
+//https://gist.github.com/DomNomNom/46bb1ce47f68d255fd5d
+
+fn intersectAABB(rayOrigin: vec3f, rayDir: vec3f, boxMin: vec3f, boxMax: vec3f)
+    -> vec2f
+{
+    let tMin = (boxMin - rayOrigin) / rayDir;
+    let tMax = (boxMax - rayOrigin) / rayDir;
+    let t1 = min(tMin, tMax);
+    let t2 = max(tMin, tMax);
+    let tNear = max(max(t1.x, t1.y), t1.z);
+    let tFar = min(min(t2.x, t2.y), t2.z);
+    return vec2f(tNear, tFar);
+};
+
+//https://inspirnathan.com/posts/56-shadertoy-tutorial-part-10
+
+fn calcCamera(cameraPos: vec3f, lookAtPoint: vec3f, uvw: vec3f)
+-> vec3f
+{
+    let cd = normalize(lookAtPoint - cameraPos);
+    let cr = normalize(cross(vec3f(0, 1, 0), cd));
+    let cu = normalize(cross(cd, cr));
+
+    return mat3x3(-cr, cu, -cd) * normalize(uvw);
+};
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
@@ -43,27 +109,30 @@ struct VSOutput {
 {
     let st = input.uv - .5;
     let bn = textureSample(blue, smp, input.uv*8.).r;
+    let boxMax = matBuffer.boxSize;
+    let boxMin = -boxMax;
 
-    let ro = vec3f(0, 0, -3.);
-    let rd = normalize(vec3f(st, 1.));
-    let step = .2;
+    let ro = rotateY(matBuffer.time*.1) * vec3f(0, 2., -3.);
+    let lp = vec3f(0);
+    let rd = calcCamera(ro, lp, vec3f(st, 1.));
+    let step = .25;
     var mDist = 0.;
-    var t = 1.;
+    var t = vec3f(1.);
 
     for (var i = 0; i < 64; i++) {
         let p = ro + rd * mDist;
-        let d = length(p) - 1.;
+        let d = intersectAABB(ro, rd, boxMin, boxMax);
 
-        var n = textureSample(worley, smp, (p+1.) * .25 + vec3f(time*.1, 0., 0.)).r;
-        n = smoothstep(.5, 1., n);
-        if (d < 0.) {
-            t *= exp(-step*n*1.5);
+        var n = textureSample(worley, smp, (p+1.) * .11 + vec3f(0, 0., 0.)).r;
+        n = smoothstep(.65, 1., n);
+        if (d.x < d.y) {
+            t *= exp(-step*n*2.);
         }
 
         mDist += step * bn;
     }
 
-    let color = vec3(1.-t);
+    let color = mix(matBuffer.colorA, matBuffer.colorB, max(vec3f(0), t)) * (1.-t);
     return vec4f(color, 1.);
 }
 `
@@ -210,7 +279,11 @@ async function main() {
 
     const geometry = GeometryLibs.createPlane(2, 2, 1, 1)
 
-    const time = new UniformBuffer(new Float32Array([0]))
+    const uniBuffer = new UniformBuffer(new Float32Array([
+        1, 1, 1, 0, // color A,
+        .41, 1., .81, 0, // color B
+        1, 1, 1, 0, // box size & time,
+    ]))
     const worleyTexture = new CopyTargetTexture(128, 128, 128, "3d")
     const blueNoiseTexture = new ExternalImageTexture(blueNoiseBitmap.width,
         blueNoiseBitmap.height, blueNoiseBitmap)
@@ -220,10 +293,10 @@ async function main() {
     material.depthWriteEnabled = false
     material.cullMode = "none"
 
-    material.addBuffer(time)
+    material.addBuffer(uniBuffer)
     material.addTexture(worleyTexture)
     material.addTexture(blueNoiseTexture)
-    material.addSampler(new SamplerCore("", { addressModeU: "mirror-repeat" }))
+    material.addSampler(new SamplerCore("", { addressModeV: "mirror-repeat" }))
 
     const mesh = new Mesh(geometry, material)
     const scene = new Scene()
@@ -265,10 +338,13 @@ async function main() {
     instance.copyTextureToTexture(encoder, volumeStorage, worleyTexture)
     instance.submitEncoder([encoder.finish()])
 
+    const stats = new Stats()
 
-    const render = () => {
-        time.data[0] += 0.016
-        instance.writeBuffer(time)
+    const render = (time) => {
+        const start = performance.now()
+
+        uniBuffer.data[11] += 0.016
+        instance.writeBuffer(uniBuffer)
 
         const encoder = instance.createCommandEncoder()
         
@@ -318,11 +394,32 @@ async function main() {
 
         instance.submitEncoder([encoder.finish()])
 
-        // requestAnimationFrame(render)
+        requestAnimationFrame(render)
+        const end = performance.now()
+        stats.update(time, end - start)
     }
-    render()
+    requestAnimationFrame(render)
 
     document.body.appendChild(canvas)
+
+    window.addEventListener("resize", () => {
+        const w = window.innerWidth
+        const h = window.innerHeight
+
+        canvas.width = w
+        canvas.height = h
+
+        const vt = 1
+        const ht = vt * w / h
+
+        postCamera.bottom = -vt
+        postCamera.up = vt
+        postCamera.left = -ht
+        postCamera.right = ht 
+        postCamera.updateProjectionMatrix()
+
+        instance.writeBuffer(postCamera.buffer)
+    })
 }
 
 main()
