@@ -12,7 +12,6 @@ dist
 dist-ssr
 *.local
 public/gltf
-public/images
 
 # Editor directories and files
 .vscode/*

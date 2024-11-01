@@ -9,10 +9,6 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "lil-gui": "^0.19.2",
     "vite": "^5.3.1"
-  },
-  "dependencies": {
-    "wgpu-matrix": "^3.0.1"
   }
 }
