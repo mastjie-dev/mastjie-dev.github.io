@@ -288,8 +288,8 @@ async function main() {
             sPass.setVertexBuffer(0, primitive.positionBuffer)
             sPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
 
-            for (let transform of primitive.transforms) {
-                sPass.setBindGroup(1, transform)
+            for (let instance of primitive.instances) {
+                sPass.setBindGroup(1, instance.transform)
                 sPass.drawIndexed(primitive.indexLength)
             }
         }
