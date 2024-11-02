@@ -1,4 +1,4 @@
-import { UniformBuffer } from "../cores/BufferCore.js"
+import { UniformBuffer, ReadOnlyStorageBuffer } from "../cores/BufferCore.js"
 import Matrix4 from "../math/Matrix4.js"
 import Mesh from "./Mesh.js"
 
@@ -12,7 +12,8 @@ class InstanceMesh extends Mesh {
         this.instanceWorldMatrix = Array(instanceMatrixElements).fill(0)
         this.instanceNormalMatrix = Array(instanceMatrixElements).fill(0)
 
-        this.buffer = new UniformBuffer(new Float32Array(instanceMatrixElements * 2))
+        this.buffer = new ReadOnlyStorageBuffer(new Float32Array(instanceMatrixElements * 2))
+        this.buffer.name = "instances matrix"
     }
 
     updateBuffer() {
