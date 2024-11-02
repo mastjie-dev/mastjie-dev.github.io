@@ -42,7 +42,7 @@ struct Model {
 )
     -> @location(0) vec4f 
 {
-    return vec4f(input.normal, 1.);
+    return vec4f(color, 1.);
 }
 `
 
