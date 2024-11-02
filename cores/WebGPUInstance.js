@@ -421,7 +421,12 @@ class WebGPUInstance {
     bindScene(scene, camera) {
         this.bindCamera(camera)
         this.bindLights(scene)
-        this.createBindGroupLayout(scene)
+
+        this.createBuffer(scene.buffer)
+            .writeBuffer(scene.buffer)
+            .createBindGroupLayoutEntries(scene.buffer, scene)
+            .createBindGroupEntries(scene.buffer, scene)
+            .createBindGroupLayout(scene)
             .createBindGroup(scene)
 
         for (let node of scene.trees) {
