@@ -1,8 +1,6 @@
 import BindGroup from "../cores/BindGroup.js"
 import BindGroupLayout from "../cores/BindGroupLayout.js"
-import BaseMaterial from "./BaseMaterial.js"
-
-
+import { UniformBuffer } from "../cores/BufferCore.js"
 
 class Scene {
     constructor() {
@@ -10,6 +8,8 @@ class Scene {
         this.lights = []
         this.materialGroups = []
         this.shadowMaterialGroups = []
+
+        this.buffer = new UniformBuffer(new Float32Array([0, 0, 0, 0]))
 
         this.bindGroup = new BindGroup()
         this.bindGroupLayout = new BindGroupLayout()
