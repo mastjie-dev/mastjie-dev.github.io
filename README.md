@@ -8,12 +8,13 @@ Building small rendering library to learn WebGPU and graphics programming
  - mipmaps
  - frustum culling
  - antialias
- - visualize normal
  - ssao
  - deferred rendering
+ - billboard
 
 ## Bugs
  - spotlight shadow
+ - gltf import
 
 ## Test pending
  - BoundingBox*
