@@ -260,34 +260,12 @@ function createBoxLine(width = 1, height = 1, depth = 1) {
     return geometry
 }
 
-function createAxis(scale = 1) {
-    const position = new Float32Array([
-        0, 0, 0, 0, 0, scale,
-        0, 0, 0, 0, scale, 0,
-        0, 0, 0, scale, 0, 0,
-    ])
-    const color = new Float32Array([
-        0, 0, 1, 0, 0, 1,
-        0, 1, 0, 0, 1, 0,
-        1, 0, 0, 1, 0, 0
-    ])
-    const index = new Uint32Array([0, 1, 2, 3, 4, 5])
-
-    const geometry = new BaseGeometry("axis geometry")
-    geometry.addAttributes(new VertexBuffer("position", position))
-    geometry.addAttributes(new VertexBuffer("color", color))
-    geometry.addIndex(new IndexBuffer(index))
-
-    return geometry
-}
-
 const GeometryLibs = {
     createPlane,
     createBox,
     createGrid,
     createBoxLine,
     createSphereCube,
-    createAxis,
 }
 
 export default GeometryLibs
