@@ -8,7 +8,7 @@ import GeometryLibs from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import Vector3 from '../math/Vector3.js'
-
+import Helper from '../scenes/Helper.js'
 import GLTFLoader from '../loader/gltf.js'
 
 async function main() {
@@ -30,36 +30,24 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(50, width / height, .1, 1000)
-    mainCamera.position.set(0, 10, 20)
+    mainCamera.position.set(10, 20, 20)
 
     const boxGeo = GeometryLibs.createBox(2, 2, 2, 1, 1, 1)
-    const sphereGeo = GeometryLibs.createSphereCube(1.5, 12)
-    const gridGeo = GeometryLibs.createGrid(100, 5)
+    const sphereGeo = GeometryLibs.createSphereCube(3, 24)
 
     const unlitMaterial = MaterialLibs.unlit({ color: new Vector3(0, 0, 1) })
-    // unlitMaterial.blend = true
-    // unlitMaterial.blendColorSrcFactor = "one"
-    // unlitMaterial.blendColorDstFactor = "one"
-
-    const lineMaterial = MaterialLibs.line()
 
     const box = new Mesh(boxGeo, unlitMaterial, "box")
-    const left = new Mesh(sphereGeo, unlitMaterial, "left")
-    const right = new Mesh(sphereGeo, unlitMaterial, "right")
-    const grid = new Mesh(gridGeo, lineMaterial, "grid")
+    const sphere = new Mesh(sphereGeo, unlitMaterial, "sphere")
+    const grid = Helper.grid(100, 5)
 
     const gltfLoader = new GLTFLoader()
     const gltf = await gltfLoader.load("../public/gltf", "monkey.gltf")
     const robot = gltf[0]
     robot.scale.setUniform(2)
 
-    right.position.set(5, 5, 0)
-    left.position.set(-5, 5, 0)
-    box.addChild(left)
-    box.addChild(right)
-
     const scene = new Scene()
-    scene.addNode(box)
+    scene.addNode(sphere)
     scene.addNode(grid)
 
     const groups = instance.bindScene(scene, mainCamera)
@@ -68,7 +56,7 @@ async function main() {
     instance.createTexture(depthTexture)
 
     const descriptor = new RenderPassDescriptor()
-    // descriptor.setClearValue(.6, .3, .3, .5)
+    descriptor.setClearValue(.12, .14, .26, 1)
     descriptor.setDSAView(depthTexture.GPUTexture.createView())
 
     const render = () => {
