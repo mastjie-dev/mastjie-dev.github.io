@@ -8,6 +8,9 @@ Building small rendering library to learn WebGPU and graphics programming
  - mipmaps
  - frustum culling
  - antialias
+ - visualize normal
+ - ssao
+ - deferred rendering
 
 ## Bugs
  - spotlight shadow
