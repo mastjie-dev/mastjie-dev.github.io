@@ -4,6 +4,7 @@ import Vector3 from "../math/Vector3.js"
 
 import unlitShader from '../shaders/unlitShader.js'
 import lineShader from '../shaders/lineShader.js'
+import vertexColorShader from '../shaders/vertexColorShader.js'
 
 function unlit(options = {}) {
     const color = options.color || new Vector3(1, 1, 1)
@@ -28,7 +29,12 @@ function line(options = {}) {
 
 function blinnPhong() {}
 
-function vertexColors() {}
+function vertexColors() {
+    const material = new BaseMaterial("vertex colors")
+    material.shader = vertexColorShader
+    
+    return material
+}
 
 const MaterialLibs = {
     unlit,
