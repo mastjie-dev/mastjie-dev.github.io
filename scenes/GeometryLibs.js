@@ -281,7 +281,7 @@ function createAxis(scale = 1) {
     return geometry
 }
 
-const GeometryUtils = {
+const GeometryLibs = {
     createPlane,
     createBox,
     createGrid,
@@ -290,4 +290,4 @@ const GeometryUtils = {
     createAxis,
 }
 
-export default GeometryUtils
+export default GeometryLibs
