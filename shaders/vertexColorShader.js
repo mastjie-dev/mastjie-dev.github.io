@@ -4,6 +4,10 @@ struct VSOutput {
     @location(1) color: vec3f,
 };
 
+struct Material {
+    dummy: f32,
+};
+
 struct Scene {
     time: f32,
 };
@@ -18,7 +22,7 @@ struct Model {
     normal: mat4x4<f32>,
 };
 
-@group(0) @binding(0) var<uniform> color: vec3f;
+@group(0) @binding(0) var<uniform> material: Material;
 @group(1) @binding(0) var<uniform> scene: Scene;
 @group(2) @binding(0) var<uniform> camera: Camera;
 @group(3) @binding(0) var<uniform> model: Model;
@@ -39,7 +43,7 @@ struct Model {
 )
     -> @location(0) vec4f 
 {
-    return vec4f(color, 1.);
+    return vec4f(input.color, 1.);
 }
 `
 
