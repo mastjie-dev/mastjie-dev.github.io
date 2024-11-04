@@ -7,8 +7,54 @@ class Quaternion {
         this.w = w
     }
 
+    set(x, y, z, w) {
+        this.x = x
+        this.y = y
+        this.z = z
+        this.w = w
+    }
+
+    setFromAxisAngle(v, angle) {
+        const h = angle * .5
+        const s = Math.sin(h)
+
+        this.x = v.x * s
+        this.y = v.y * s
+        this.z = v.z * s
+        this.w = Math.cos(h)
+        return this
+    }
+
+    setFromEuler(v3) {
+        const x = v3.x * .5
+        const y = v3.y * .5
+        const z = v3.z * .5
+
+        const c1 = Math.cos(x)
+        const c2 = Math.cos(y)
+        const c3 = Math.cos(z)
+        const s1 = Math.sin(x)
+        const s2 = Math.sin(y)
+        const s3 = Math.sin(z)
+
+        this.x = s1*c2*c3 + c1*s2*s3
+        this.y = c1*s2*c3 - s1*c2*s3
+        this.z = c1*c2*s3 + s1*s2*c3
+        this.w = c1*c2*c3 - s1*s2*s3
+
+        return this
+    }
+
+    copy(q) {
+        this.x = q.x
+        this.y = q.y
+        this.z = q.z
+        this.w = q.w
+        return this
+    }
+
     square() {
-        return this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w 
+        return this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w
     }
 
     length() {
@@ -50,16 +96,10 @@ class Quaternion {
         const w = q1.w; const x = q1.x; const y = q1.y; const z = q1.z;
         const a = q2.w; const b = q2.x; const c = q2.y; const d = q2.z;
 
-        this.x =  x*a + y*d - z*c + w*b
-        this.y = -x*d + y*a + z*b + w*c
-        this.z =  x*c - y*b + z*a + w*d
-        this.w = -x*b - y*c - z*d + w*a
-
-        // https://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/code/index.htm
-        // x =  q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x;
-        // y = -q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y;
-        // z =  q1.x * q2.y - q1.y * q2.x + q1.z * q2.w + q1.w * q2.z;
-        // w = -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w;
+        this.x = x * a + y * d - z * c + w * b
+        this.y = -x * d + y * a + z * b + w * c
+        this.z = x * c - y * b + z * a + w * d
+        this.w = -x * b - y * c - z * d + w * a
 
         return this
     }
@@ -68,7 +108,7 @@ class Quaternion {
         return this.multiplyQuaternion(this, q)
     }
 
-    
+
 }
 
 export default Quaternion

@@ -141,6 +141,48 @@ class Matrix4 {
         return this
     }
 
+    buildTransformation(position, quaternion, scale) {
+        const x = quaternion.x
+        const y = quaternion.y
+        const z = quaternion.z
+        const w = quaternion.w
+        const sx = scale.x
+        const sy = scale.y
+        const sz = scale.z
+
+        const x2 = x * x
+        const y2 = y * y
+        const z2 = z * z
+        
+        const el = this.elements
+
+        el[0]  = (1 - 2*y2 - 2*z2) * sx
+        el[1]  = (2*x*y + 2*z*w) * sx
+        el[2]  = (2*x*z - 2*y*w) * sx
+        el[3]  = 0
+
+        el[4]  = (2*x*y - 2*z*w) * sy
+        el[5]  = (1 - 2*x2 - 2*z2) * sy
+        el[6]  = (2*y*z + 2*x*w) * sy
+        el[7]  = 0
+
+        el[8]  = (2*x*z + 2*y*w) * sz
+        el[9]  = (2*y*z - 2*x*w) * sz
+        el[10] = (1 - 2*x2 - 2*y2) * sz
+        el[11] = 0
+
+        el[12] = position.x
+        el[13] = position.y
+        el[14] = position.z
+        el[15] = 1
+
+        return this
+    }
+
+    rotateQuaternion(q) {
+        this.buildTransformation(new Vector3(0), q, new Vector3(1))
+    }
+
     transpose() {
         const el = this.elements
         let t

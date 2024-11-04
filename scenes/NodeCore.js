@@ -1,12 +1,14 @@
 import Vector3 from "../math/Vector3.js"
 import Matrix4 from "../math/Matrix4.js"
+import Quaternion from "../math/Quaternion.js"
 
 class NodeCore {
     constructor(name) {
         this.name = name
         this.position = new Vector3()
-        this.rotation = new Vector3()
+        this.rotation = new Vector3() // TODO: remove? readonly?
         this.scale = new Vector3(1, 1, 1)
+        this.quaternion = new Quaternion()
 
         this.localMatrix = new Matrix4().identity()
         this.worldMatrix = new Matrix4().identity()
@@ -26,12 +28,7 @@ class NodeCore {
 
     updateLocalMatrix() {
         this.localMatrix.identity()
-        this.localMatrix
-            .translate(this.position)
-            .rotateX(this.rotation.x)
-            .rotateY(this.rotation.y)
-            .rotateZ(this.rotation.z)
-            .scale(this.scale)
+        this.localMatrix.buildTransformation(this.position, this.quaternion, this.scale)
     }
 
     updateWorldMatrix() {
