@@ -1,4 +1,5 @@
 import { VertexBuffer, IndexBuffer, UniformBuffer } from "../cores/BufferCore.js"
+import Vector3 from "../math/Vector3.js"
 import BaseGeometry from "../scenes/BaseGeometry.js"
 import BaseMaterial from "../scenes/BaseMaterial.js"
 import MaterialLibs from "../scenes/MaterialLibs.js"
@@ -48,6 +49,7 @@ class GLTFLoader {
         } else if (ct === GLTF) {
             data = await this.handleGLTF(stream)
         }
+
         const { json, buffer } = data
 
         this.buildMaterial(json)
@@ -83,7 +85,7 @@ class GLTFLoader {
 
         const jsonLength = new Uint32Array(u8Buffer.buffer.slice(12, 16))
         const jsonEndOffset = 20 + jsonLength[0]
-        
+
         const decoder = new TextDecoder()
         const json = JSON.parse(decoder.decode(u8Buffer.slice(20, jsonEndOffset)))
 
@@ -119,12 +121,19 @@ class GLTFLoader {
     }
 
     getSliceBuffer(json, buffer, index) {
-        const bufferView = json.bufferViews[index]
-        const accessor = json.accessors[index].bufferView === index
-            ? json.accessors[index]
-            : json.accessor.find(x => x.bufferView === index)
-        const slice = buffer.slice(bufferView.byteOffset, bufferView.byteOffset
-            + bufferView.byteLength)
+        const accessor = json.accessors[index]
+        const bufferView = json.bufferViews[accessor.bufferView]
+        const bufferLength = bufferView.byteOffset + bufferView.byteLength
+
+        const mOf4 = bufferLength % 4
+        const extraBytes = mOf4 !== 0 ? mOf4 : 0
+
+        let slice = buffer.slice(bufferView.byteOffset, bufferLength + extraBytes)
+
+        // necessary??? set extrabytes to zero
+        for (let i = extraBytes; i > 0; i--) {
+            slice[slice.byteLength - i] = 0
+        }
 
         let data
         let format
@@ -161,8 +170,9 @@ class GLTFLoader {
     buildMaterial(json) {
         if (json.materials) {
             for (let gMat of json.materials) {
-                const color = gMat.pbrMetallicRoughness.baseColorFactor
-                color.pop()
+                // const color = gMat.pbrMetallicRoughness.baseColorFactor
+                // color.pop()
+                const color = new Vector3(1, 1, 1).toArray()
 
                 const material = new BaseMaterial(gMat.name)
                 material.shader = unlitShader
@@ -175,53 +185,61 @@ class GLTFLoader {
     buildNode(json, buffer, index, parent) {
         const node = json.nodes[index]
         const mesh = json.meshes[node.mesh]
-        const { attributes: attrs, indices, material: matIndex } = mesh.primitives[0]
 
-        const geometry = new BaseGeometry()
-        for (let key in attrs) {
-            const idx = attrs[key]
+        let meshNode = null
+        if (mesh) {
+            for (let primitive of mesh.primitives) {
+                const { attributes: attrs, indices, material: matIndex } = primitive
 
-            const slice = this.getSliceBuffer(json, buffer, idx)
-            const vbName = key === "TEXCOORD_0" ? "uv" : key.toLowerCase()
+                const geometry = new BaseGeometry()
+                for (let key in attrs) {
+                    const idx = attrs[key]
 
-            const vertexBuffer = new VertexBuffer(vbName, slice.data, slice.format)
-            geometry.addAttributes(vertexBuffer)
-        }
+                    const slice = this.getSliceBuffer(json, buffer, idx)
+                    const vbName = key === "TEXCOORD_0" ? "uv" : key.toLowerCase()
 
-        const slice = this.getSliceBuffer(json, buffer, indices)
-        const indexBuffer = new IndexBuffer(slice.data, slice.format)
-        geometry.addIndex(indexBuffer)
+                    const vertexBuffer = new VertexBuffer(vbName, slice.data, slice.format)
+                    geometry.addAttributes(vertexBuffer)
+                }
 
-        let material
-        if (matIndex === undefined) {
-            if (this.materials.length === 0) {
-                this.materials.push(MaterialLibs.unlit())
+                const slice = this.getSliceBuffer(json, buffer, indices)
+                const indexBuffer = new IndexBuffer(slice.data, slice.format)
+                geometry.addIndex(indexBuffer)
+
+                let material
+                if (matIndex === undefined) {
+                    if (this.materials.length === 0) {
+                        this.materials.push(MaterialLibs.unlit())
+                    }
+                    material = this.materials[0]
+                } else {
+                    material = this.materials[matIndex]
+                }
+
+                meshNode = new Mesh(geometry, material, node.name)
+                parent.addChild(meshNode)
+
+                if (node.translation) {
+                    meshNode.position.setFromArray(node.translation)
+                }
+
+                if (node.rotation) {
+                    meshNode.rotation.setFromArray(node.rotation)
+                }
+
+                if (node.scale) {
+                    meshNode.scale.setFromArray(node.scale)
+                }
             }
-            material = this.materials[0]
-        } else {
-            material = this.materials[matIndex]
-        }
-
-        const meshNode = new Mesh(geometry, material, node.name)
-        parent.addChild(meshNode)
-
-        if (node.translation) {
-            meshNode.position.setFromArray(node.translation)
-        }
-
-        if (node.rotation) {
-            meshNode.rotation.setFromArray(node.rotation)
-        }
-
-        if (node.scale) {
-            meshNode.scale.setFromArray(node.scale)
         }
 
         if (node.children) {
+            const _parent = meshNode !== null ? meshNode : parent
             for (let _index of node.children) {
-                this.buildNode(json, buffer, _index, meshNode)
+                this.buildNode(json, buffer, _index, _parent)
             }
         }
+
     }
 }
 
