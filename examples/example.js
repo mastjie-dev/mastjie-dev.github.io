@@ -115,6 +115,9 @@ async function main() {
         depthTexture.height = h
 
         instance.writeBuffer(mainCamera.buffer).createTexture(depthTexture)
+
+        descriptor.setDSAView(depthTexture.GPUTexture.createView())
+
         render()
     })
 }
