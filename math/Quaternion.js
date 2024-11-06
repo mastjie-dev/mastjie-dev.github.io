@@ -45,6 +45,14 @@ class Quaternion {
         return this
     }
 
+    identity() {
+        this.x = 0
+        this.y = 0
+        this.z = 0
+        this.w = 1
+        return this
+    }
+
     copy(q) {
         this.x = q.x
         this.y = q.y
@@ -105,10 +113,13 @@ class Quaternion {
     }
 
     multiply(q) {
-        return this.multiplyQuaternion(this, q)
+        this.multiplyQuaternion(this, q)
+        return this
     }
 
-
+    toArray() {
+        return [this.x, this.y, this.z, this.w]
+    }
 }
 
 export default Quaternion
