@@ -6,9 +6,9 @@ class NodeCore {
     constructor(name) {
         this.name = name
         this.position = new Vector3()
+        this.quaternion = new Quaternion(0, 0, 0, 1)
         this.rotation = new Vector3() // TODO: remove? readonly?
         this.scale = new Vector3(1, 1, 1)
-        this.quaternion = new Quaternion()
 
         this.localMatrix = new Matrix4().identity()
         this.worldMatrix = new Matrix4().identity()
