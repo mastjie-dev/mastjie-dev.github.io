@@ -8,8 +8,12 @@ import GeometryLibs from '../scenes/GeometryLibs.js'
 import MaterialLibs from '../scenes/MaterialLibs.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
 import Vector3 from '../math/Vector3.js'
+import Vector2 from '../math/Vector2.js'
 import Helper from '../scenes/Helper.js'
 import GLTFLoader from '../loader/gltf.js'
+import CameraControl from '../scenes/Controls.js'
+
+import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
 
 async function main() {
     const width = window.innerWidth
@@ -44,13 +48,16 @@ async function main() {
     const gltfLoader = new GLTFLoader()
     const gltf = await gltfLoader.load("../public/gltf", "monkey.gltf")
     const robot = gltf[0]
-    robot.scale.setUniform(2)
+    
+    box.scale.setUniform(2)
 
     const scene = new Scene()
-    scene.addNode(sphere)
+    scene.addNode(box)
     scene.addNode(grid)
 
     const groups = instance.bindScene(scene, mainCamera)
+
+    const control = new CameraControl(mainCamera)
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
@@ -60,6 +67,7 @@ async function main() {
     descriptor.setDSAView(depthTexture.GPUTexture.createView())
 
     const render = () => {
+        mainCamera.updateViewMatrix()
         instance.writeBuffer(mainCamera.buffer)
 
         const encoder = instance.createCommandEncoder()
@@ -95,8 +103,7 @@ async function main() {
         instance.submitEncoder([encoder.finish()])
         // requestAnimationFrame(render)
     }
-    render()
-    document.body.appendChild(canvas)
+    requestAnimationFrame(render)
 
     document.body.appendChild(canvas)
 
@@ -118,6 +125,40 @@ async function main() {
 
         descriptor.setDSAView(depthTexture.GPUTexture.createView())
 
+        render()
+    })
+
+    let mousePress = false
+    window.addEventListener("mousedown", () => {
+        mousePress = true
+    })
+
+    window.addEventListener("mouseup", () => {
+        mousePress = false
+    })
+
+    const old = new Vector2()
+    const dir = new Vector2()
+    let zoom = 0
+    window.addEventListener("mousemove", e => {
+        if (mousePress) {
+            const dirX = e.clientX - old.x
+            const dirY = e.clientY - old.y
+
+            if (Math.abs(dirX) > 2 || Math.abs(dirY) > 2) {
+                dir.set(dirX, dirY).normalize()
+                control.update(dir, zoom)
+            }
+
+            old.set(e.clientX, e.clientY)
+            render()
+        }
+    })
+
+    window.addEventListener("wheel", e => {
+        zoom = Math.sign(e.deltaY)
+        control.update(dir, zoom)
+        zoom = 0
         render()
     })
 }
