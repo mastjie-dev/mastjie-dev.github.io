@@ -24,6 +24,15 @@ class RenderPassDescriptor {
         return this.descriptor
     }
 
+    addColorAttachment() {
+        this.descriptor.colorAttachments.push({
+            view: null,
+            clearValue: [0, 0, 0, 0],
+            loadOp: "clear",
+            storeOp: "store"
+        })
+    }
+
     disableColorAttachment() {
         this.descriptor.colorAttachments = []
     }
@@ -37,21 +46,21 @@ class RenderPassDescriptor {
         this.descriptor.depthStencilAttachment.depthLoadOp = undefined
         this.descriptor.depthStencilAttachment.depthStoreOp = undefined
     }
-    
+
     disableStencil() {
         this.descriptor.depthStencilAttachment.stencilClearValue = undefined
         this.descriptor.depthStencilAttachment.stencilLoadOp = undefined
         this.descriptor.depthStencilAttachment.stencilStoreOp = undefined
     }
-    
+
     setClearValue(r, g, b, a, index = 0) {
         this.descriptor.colorAttachments[index].clearValue = [r, g, b, a]
     }
-    
+
     modifyDepthStencilAttachment(key, value) {
         this.descriptor.depthStencilAttachment[key] = value
     }
-    
+
     timestampWrites(querySet) {
         this.descriptor.timestampWrites = {
             querySet: querySet.GPUQuerySet,
