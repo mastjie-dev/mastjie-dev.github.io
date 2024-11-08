@@ -66,14 +66,14 @@ class WebGPUInstance {
             return this
         }
 
-        const { width, height } = textureCore
+        const { width, height, bytePerPixel } = textureCore
         this.device.queue.writeTexture(
             { texture: textureCore.GPUTexture },
             textureCore.data,
             {
                 offset: 0,
-                bytesPerRow: width * 4,
-                rowsPerImage: width * height * 4,
+                bytesPerRow: width * bytePerPixel,
+                rowsPerImage: width * height * bytePerPixel,
             },
             {
                 width: width,
@@ -418,7 +418,7 @@ class WebGPUInstance {
         })
     }
 
-    bindScene(scene, camera) {
+    bindScene(scene, camera, targets = []) {
         this.bindCamera(camera)
         this.bindLights(scene)
 
@@ -436,6 +436,7 @@ class WebGPUInstance {
         const groups = scene.materialGroups.map(mGroup => {
             const material = mGroup.material.bindGroup.GPUBindGroup
             const pipelineCore = new PipelineCore(mGroup.material)
+            pipelineCore.setTargets(...targets)
 
             const primitives = mGroup.primitives.map(pmv => {
                 const { geometry, meshes } = pmv
