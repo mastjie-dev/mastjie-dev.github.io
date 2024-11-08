@@ -13,6 +13,7 @@ class TextureCore {
         this.dimension = dimension
         this.viewDimension = dimension
         this.format = format
+        this.bytePerPixel = 4
         this.flipY = false
 
         this.usage = null
@@ -33,10 +34,11 @@ class TextureCore {
 }
 
 class CopyTargetTexture extends TextureCore {
-    constructor(width, height, depth = 1, dimension = "2d") {
+    constructor(width, height, depth = 1, dimension = "2d", bytePerPixel = 4) {
         super("", "copy", width, height, depth, dimension, "bgra8unorm")
 
-        this.data = new Uint8Array(width * height * depth * 4) // assume 4 colors channel
+        this.bytePerPixel = bytePerPixel
+        this.data = new Uint8Array(width * height * depth * bytePerPixel) // assume 4 colors channel
         this.usage = GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING
         this.visibility = GPUShaderStage.FRAGMENT
@@ -44,10 +46,11 @@ class CopyTargetTexture extends TextureCore {
 }
 
 class RenderTargetTexture extends TextureCore {
-    constructor(width, height) {
+    constructor(width, height, bytePerPixel = 4) {
         super("", "render", width, height, 1, "2d", "bgra8unorm")
 
-        this.data = new Uint8Array(width * height * 4)
+        this.bytePerPixel = bytePerPixel
+        this.data = new Uint8Array(width * height * bytePerPixel)
         this.usage = GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING |
             GPUTextureUsage.RENDER_ATTACHMENT
@@ -80,12 +83,13 @@ class DepthTexture extends TextureCore {
 }
 
 class StorageTexture extends TextureCore {
-    constructor(width, height, depth = 1, dimension = "2d") {
+    constructor(width, height, depth = 1, dimension = "2d", bytePerPixel = 4) {
         super("", "storage", width, height, depth, dimension, "bgra8unorm")
 
+        this.bytePerPixel = bytePerPixel
         this.isStorageTexture = true
         this.access = "write-only"
-        this.data = new Uint8Array(width * height * depth * 4)
+        this.data = new Uint8Array(width * height * depth * bytePerPixel)
         this.usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC
             | GPUTextureUsage.STORAGE_BINDING
         this.visibility = GPUShaderStage.COMPUTE
