@@ -2,7 +2,7 @@ class PipelineCore {
     constructor(material, label = "") {
         this.label = label
         this.material = material
-        this.format = "bgra8unorm"
+        this.targets = []
         this.instance = null
         this.vertexBufferLayout = null
     }
@@ -10,6 +10,28 @@ class PipelineCore {
     setVertexBufferLayout(vertexBufferLayout) {
         if (!this.vertexBufferLayout) {
             this.vertexBufferLayout = vertexBufferLayout
+        }
+    }
+
+    setTargets(...formats) {
+        formats.forEach(format => this.targets.push(format))
+    }
+
+    createTargetFormat(format, blend) {
+        return {
+            format: format,
+            blend: !blend ? undefined : {
+                color: {
+                    operation: this.material.blendColorOp,
+                    srcFactor: this.material.blendColorSrcFactor,
+                    dstFactor: this.material.blendColorDstFactor,
+                },
+                alpha: {
+                    operation: this.material.blendAlphaOp,
+                    srcFactor: this.material.blendAlphaSrcFactor,
+                    dstFactor: this.material.blendAlphaDstFactor,
+                },
+            }
         }
     }
 
@@ -29,27 +51,21 @@ class PipelineCore {
         }
 
         if (this.material.fragmentEnabled) {
-            // TODO: multiple targets
-            const zero = {
-                format: this.format,
-                blend:  !this.material.blend ? undefined : {
-                    color: {
-                        operation: this.material.blendColorOp,
-                        srcFactor: this.material.blendColorSrcFactor,
-                        dstFactor: this.material.blendColorDstFactor,
-                    },
-                    alpha: {
-                        operation: this.material.blendAlphaOp,
-                        srcFactor: this.material.blendAlphaSrcFactor,
-                        dstFactor: this.material.blendAlphaDstFactor,
-                    },
+            const targets = []
+
+            if (this.targets.length) {
+                for (let target of this.targets) {
+                    targets.push(this.createTargetFormat(target.format, target.blend))
                 }
+            }
+            else {
+                targets.push(this.createTargetFormat("bgra8unorm", this.material.blend))
             }
 
             descriptor.fragment = {
                 module: this.material.shaderModule,
                 entryPoint: "main_fragment",
-                targets: [zero]
+                targets,
             }
         }
 
