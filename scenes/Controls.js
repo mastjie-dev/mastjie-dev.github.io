@@ -22,7 +22,7 @@ class CameraControl {
 
     calcRotation(dir) {
         dir.multiplyScalar(this.theta)
-        
+
         this.azimuth += dir.x
         this.polar += dir.y
 
@@ -57,4 +57,4 @@ class CameraControl {
     }
 }
 
-export default CameraControl
+export { CameraControl }

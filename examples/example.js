@@ -11,7 +11,7 @@ import Vector3 from '../math/Vector3.js'
 import Vector2 from '../math/Vector2.js'
 import Helper from '../scenes/Helper.js'
 import GLTFLoader from '../loader/gltf.js'
-import CameraControl from '../scenes/Controls.js'
+import {CameraControl} from '../scenes/Controls.js'
 
 import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
 
