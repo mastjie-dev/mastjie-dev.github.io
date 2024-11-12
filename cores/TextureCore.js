@@ -64,6 +64,7 @@ class ExternalImageTexture extends TextureCore {
         this.isExternalTexture = true
 
         this.data = data
+        this.flipY = true
         this.usage = GPUTextureUsage.COPY_DST |
             GPUTextureUsage.TEXTURE_BINDING |
             GPUTextureUsage.RENDER_ATTACHMENT
