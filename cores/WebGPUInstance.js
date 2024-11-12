@@ -352,28 +352,28 @@ class WebGPUInstance {
                     if (!buffer.GPUBuffer) {
                         this.createBuffer(buffer)
                             .writeBuffer(buffer)
-                            .createBindGroupLayoutEntries(buffer, material)
-                            .createBindGroupEntries(buffer, material)
                     }
+                    this.createBindGroupLayoutEntries(buffer, material)
+                        .createBindGroupEntries(buffer, material)
                 }
 
                 const textures = material.textures
                 for (let texture of textures) {
-                    if (!texture.GPUBuffer) {
+                    if (!texture.GPUTexture) {
                         this.createTexture(texture)
                             .writeTexture(texture)
-                            .createBindGroupLayoutEntries(texture, material)
-                            .createBindGroupEntries(texture, material)
                     }
+                    this.createBindGroupLayoutEntries(texture, material)
+                        .createBindGroupEntries(texture, material)
                 }
 
                 const samplers = material.samplers
                 for (let sampler of samplers) {
                     if (!sampler.GPUSampler) {
                         this.createSampler(sampler)
-                            .createBindGroupLayoutEntries(sampler, material)
-                            .createBindGroupEntries(sampler, material)
                     }
+                    this.createBindGroupLayoutEntries(sampler, material)
+                        .createBindGroupEntries(sampler, material)
                 }
 
                 this.createBindGroupLayout(material).createBindGroup(material)
