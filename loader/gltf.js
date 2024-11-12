@@ -51,7 +51,6 @@ class GLTFLoader {
         }
 
         const { json, buffer } = data
-
         this.buildMaterial(json)
 
         const roots = []
@@ -170,14 +169,22 @@ class GLTFLoader {
     buildMaterial(json) {
         if (json.materials) {
             for (let gMat of json.materials) {
-                // const color = gMat.pbrMetallicRoughness.baseColorFactor
-                // color.pop()
-                const color = new Vector3(1, 1, 1).toArray()
+                const { pbrMetallicRoughness } = gMat
+
+                const { baseColorFactor, mettalicFactor, roughnessFactor } = pbrMetallicRoughness
 
                 const material = new BaseMaterial(gMat.name)
                 material.shader = unlitShader
-                material.addBuffer(new UniformBuffer(new Float32Array(color)))
                 this.materials.push(material)
+
+                if (Array.isArray(baseColorFactor)) {
+                    const color = baseColorFactor
+                    color.pop()
+                    material.addBuffer(new UniformBuffer(new Float32Array(color)))
+                }
+                else {
+                    material.addBuffer(new UniformBuffer(new Float32Array([1, 1, 1])))
+                }
             }
         }
     }
