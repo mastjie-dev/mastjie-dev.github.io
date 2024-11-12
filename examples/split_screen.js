@@ -1,17 +1,37 @@
 import WebGPUInstance from '../cores/WebGPUInstance.js'
-import BufferCore from '../cores/BufferCore.js'
-import { DepthTexture, RenderTargetTexture } from '../cores/TextureCore.js'
+import {UniformBuffer} from '../cores/BufferCore.js'
+import { DepthTexture } from '../cores/TextureCore.js'
 import SamplerCore from '../cores/SamplerCore.js'
-import { RenderPassDescriptorBuilder } from '../cores/Builder.js'
-import VARS from '../cores/VARS.js'
+import RenderPassDescriptor from '../cores/RenderPassDescriptor.js'
 
+import Scene from '../scenes/Scene.js'
 import Mesh from '../scenes/Mesh.js'
+import { DirectionalLight } from '../scenes/Light.js'
 import BaseMaterial from '../scenes/BaseMaterial.js'
 import { PerspectiveCamera } from '../scenes/Camera.js'
-import GeometryUtils from '../scenes/GeometryUtils.js'
-import { PipelineDescriptorBuilder } from '../cores/Builder.js'
+import GeometryLibs from '../scenes/GeometryLibs.js'
+import MaterialLibs from '../scenes/MaterialLibs.js'
 
-const boxCode = `
+import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm'
+import Vector3 from '../math/Vector3.js'
+
+const shader = `
+
+struct VSOutput {
+    @builtin(position) position: vec4f,
+    @location(0) worldPos: vec3f,
+    @location(1) normal: vec3f,
+    @location(2) uv: vec2f,
+    @location(3) vsLightPos: vec3f,
+};
+
+struct DirectionalLight {
+    direction: vec3f,
+    color: vec3f,
+    strength: f32,
+    projectionView: mat4x4<f32>,
+};
+
 struct Camera {
     projection: mat4x4<f32>,
     view: mat4x4<f32>
@@ -22,23 +42,43 @@ struct Model {
     normal: mat4x4<f32>,
 };
 
-@group(0) @binding(0) var<uniform>camera: Camera;
-@group(1) @binding(0) var<uniform>color: vec3f;
-@group(2) @binding(0) var<uniform>model: Model;
+@group(0) @binding(0) var<uniform> color: vec3f;
+@group(1) @binding(0) var<uniform> light: DirectionalLight;
+@group(2) @binding(0) var<uniform> camera: Camera;
+@group(3) @binding(0) var<uniform> model: Model;
 
 @vertex fn main_vertex(
     @location(0) position: vec3f,
-) -> @builtin(position) vec4f
+    @location(1) normal: vec3f,
+    @location(2) uv: vec2f
+) -> VSOutput
 {
     let transform = model.matrix * vec4f(position, 1.);
-    return camera.projection * camera.view * transform;
+    let vsTransform = camera.view * transform;
+
+    var output: VSOutput;
+    // output.position = camera.projection * camera.view * transform;
+    output.position = camera.projection * vsTransform;
+    output.worldPos = transform.xyz;
+    output.normal = (model.normal * vec4f(normal, 0.)).xyz;
+    output.uv = uv;
+
+    output.vsLightPos = (camera.view * vec4f(light.direction, 0.)).xyz;
+
+    return output;
 }
 
 @fragment fn main_fragment(
-
+    input: VSOutput
 ) -> @location(0) vec4f
 {
-    return vec4f(color, 1.);
+    // let dir = normalize(light.direction - input.worldPos);
+    let dir = normalize(input.vsLightPos - input.worldPos);
+    let lum = dot(dir, normalize(input.normal));
+
+    let _col = vec3f(lum);
+
+    return vec4f(_col, 1.);
 }
 `
 
@@ -122,183 +162,116 @@ async function main() {
     })
 
     const mainCamera = new PerspectiveCamera(50, width / height)
-    mainCamera.position.set(0, 0, -3)
+    mainCamera.position.set(0, 10, 20)
 
-    const geometry = GeometryUtils.createBox()
+    const dirLight = new DirectionalLight()
+    dirLight.position.set(0, 10, 0)
 
-    const redMaterial = new BaseMaterial("red")
-    redMaterial.shader = boxCode
-    redMaterial.addBuffer(
-        new BufferCore("red color", "uniform", new Float32Array([1, 0, 0]), VARS.Buffer.Uniform))
+    const boxGeo = GeometryLibs.createBox(2, 2, 2)
+    const sphereGeo = GeometryLibs.createSphereCube(2, 32)
+    const planeGeo = GeometryLibs.createPlane(20, 20, 4, 4, { dir: "down"})
 
-    const blueMaterial = new BaseMaterial("red")
-    blueMaterial.shader = boxCode
-    blueMaterial.addBuffer(
-        new BufferCore("red color", "uniform", new Float32Array([0, 1, 0]), VARS.Buffer.Uniform))
+    const material = new BaseMaterial("red")
+    material.shader = shader
+    material.addBuffer(new UniformBuffer(new Float32Array([1, 0, 0])))
 
+    const sphere = new Mesh(sphereGeo, material, "box1")
+    sphere.position.x = 4
+    const box = new Mesh(boxGeo, material)
+    box.position.x = -4
+    const plane = new Mesh(planeGeo, material)
+    plane.position.y = -2
 
-    const box1 = new Mesh(geometry, redMaterial, "box1")
-    const box2 = new Mesh(geometry, blueMaterial, "box2")
+    const redMat = MaterialLibs.unlit({ color: new Vector3(1, 0, 0) })
+    const lightVisual = new Mesh(sphereGeo, redMat)
+    lightVisual.scale.setUniform(.25)
+    lightVisual.position.copy(dirLight.position)
 
-    const leftTexture = new RenderTargetTexture(width, height)
-    const rightTexture = new RenderTargetTexture(width, height)
+    const scene = new Scene()
+    scene.addNode(sphere)
+    scene.addNode(box)
+    scene.addNode(plane)
+    scene.addNode(lightVisual)
+    scene.addNode(dirLight)
 
-    const quadGeometry = GeometryUtils.createPlane(2, 2)
-
-    const unf = new BufferCore("bg colors", "uniform", new Float32Array([
-        250 / 255, 237 / 255, 203 / 255, 0,
-        192 / 255, 222 / 255, 241 / 255, 0
-    ]), VARS.Buffer.Uniform)
-
-    const quadMaterial = new BaseMaterial("quad mat")
-    quadMaterial.shader = quadCode
-    quadMaterial.addBuffer(unf)
-    quadMaterial.addTexture(leftTexture)
-    quadMaterial.addTexture(rightTexture)
-    quadMaterial.addSampler(new SamplerCore())
-
-    const quad = new Mesh(quadGeometry, quadMaterial)
-
-    instance.bindCamerasResource(mainCamera)
-    instance.bindMeshesResources([box1, box2, quad])
-
-    const boxes = [box1, box2]
-    const renderObjects = boxes.map(box => {
-        const pipelineLayout = instance.createPipelineLayout(
-            mainCamera.bindGroupLayout.GPUBindGroupLayout,
-            box.material.bindGroupLayout.GPUBindGroupLayout,
-            box.bindGroupLayout.GPUBindGroupLayout,
-        )
-
-        const pipelineDescriptor = PipelineDescriptorBuilder
-            .start()
-            .layout(pipelineLayout)
-            .vertex(box.material.shaderModule, box1.geometry.vertexBufferLayout)
-            .fragment(box.material.shaderModule, canvasFormat)
-            .primitive(box.material.cullMode, box.material.topology)
-            .depthStencil(
-                box.material.depthWriteEnabled,
-                box.material.depthFormat,
-                box.material.depthCompare)
-            .end()
-
-        return instance.createRenderPipeline(box, pipelineDescriptor)
-    })
-
-    let renderQuad
-    {
-        const pipelineLayout = instance.createPipelineLayout(
-            quad.material.bindGroupLayout.GPUBindGroupLayout,
-            quad.bindGroupLayout.GPUBindGroupLayout
-        )
-
-        const pipelineDescriptor = PipelineDescriptorBuilder
-            .start()
-            .layout(pipelineLayout)
-            .vertex(quad.material.shaderModule, quadGeometry.vertexBufferLayout)
-            .fragment(quad.material.shaderModule, canvasFormat)
-            .end()
-
-        renderQuad = instance.createRenderPipeline(quad, pipelineDescriptor)
-    }
-
-    const leftRPDesc = RenderPassDescriptorBuilder.start().end()
-    const rightRPDesc = structuredClone(leftRPDesc)
+    const groups = instance.bindScene(scene, mainCamera)
 
     const depthTexture = new DepthTexture(width, height)
     instance.createTexture(depthTexture)
+    
+    const rpDesc = new RenderPassDescriptor()
+    rpDesc.setDSAView(depthTexture.GPUTexture.createView())
 
-    const quadRPDesc = RenderPassDescriptorBuilder
-        .start()
-        .disableStencilAttachment()
-        .end()
+    const arr = [sphere, box, plane]
 
     const render = () => {
-        box1.rotation.z += .013
-        box1.rotation.x += .01
-        box1.updateMatrixWorld()
-        box1.updateBuffer()
-
-        box2.worldMatrix.copy(box1.worldMatrix)
-        box2.updateBuffer()
-
-        unf.data[7] += 0.016
-
+        arr.forEach(a => {
+            a.updateViewSpaceNormalMatrix(mainCamera)
+            a.updateBuffer()
+            instance.writeBuffer(a.buffer)
+        })
+        
         instance
-            .writeBuffer(box1.buffer)
-            .writeBuffer(box2.buffer)
-            .writeBuffer(unf)
+            .writeBuffer(dirLight.buffer)
+            .writeBuffer(lightVisual.buffer)
 
         const encoder = instance.createCommandEncoder()
 
-        /**
-         * LEFT PASS
-         */
-        leftRPDesc.colorAttachments[0].view = leftTexture.GPUTexture.createView()
-        leftRPDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
+        rpDesc.setCAView(context.getCurrentTexture().createView())
+        const mainPass = encoder.beginRenderPass(rpDesc.get())
 
-        const leftPass = encoder.beginRenderPass(leftRPDesc)
-        leftPass.setPipeline(renderObjects[0].pipeline)
+        mainPass.setBindGroup(1, scene.bindGroup.GPUBindGroup)
+        mainPass.setBindGroup(2, mainCamera.bindGroup.GPUBindGroup)
 
-        let i = 0
-        for (let attr of renderObjects[0].mesh.geometry.attributes) {
-            leftPass.setVertexBuffer(i, attr.GPUBuffer)
-            ++i
+        for (let group of groups) {
+            mainPass.setBindGroup(0, group.material)
+            mainPass.setPipeline(group.pipeline)
+
+            for (let primitive of group.primitives) {
+                let i = 0
+                for (let attribute of primitive.attributes) {
+                    mainPass.setVertexBuffer(i, attribute)
+                    ++i
+                }
+
+                mainPass.setIndexBuffer(primitive.indexBuffer, primitive.indexFormat)
+
+                for (let instance of primitive.instances) {
+                    mainPass.setBindGroup(3, instance.transform)
+                    mainPass.drawIndexed(primitive.indexLength)
+                }
+            }
         }
-        leftPass.setBindGroup(0, mainCamera.bindGroup.GPUBindGroup)
-        leftPass.setBindGroup(1, renderObjects[0].mesh.material.bindGroup.GPUBindGroup)
-        leftPass.setBindGroup(2, renderObjects[0].mesh.bindGroup.GPUBindGroup)
-        leftPass.setIndexBuffer(renderObjects[0].mesh.geometry.index.GPUBuffer,
-            renderObjects[0].mesh.geometry.index.format)
-        leftPass.drawIndexed(renderObjects[0].mesh.geometry.index.length)
-        leftPass.end()
-
-        /**
-         * RIGHT PASS
-         */
-        rightRPDesc.colorAttachments[0].view = rightTexture.GPUTexture.createView()
-        rightRPDesc.depthStencilAttachment.view = depthTexture.GPUTexture.createView()
-
-        const rightPass = encoder.beginRenderPass(rightRPDesc)
-        rightPass.setPipeline(renderObjects[1].pipeline)
-
-        i = 0
-        for (let attr of renderObjects[1].mesh.geometry.attributes) {
-            rightPass.setVertexBuffer(i, attr.GPUBuffer)
-            ++i
-        }
-        rightPass.setBindGroup(0, mainCamera.bindGroup.GPUBindGroup)
-        rightPass.setBindGroup(1, renderObjects[1].mesh.material.bindGroup.GPUBindGroup)
-        rightPass.setBindGroup(2, renderObjects[1].mesh.bindGroup.GPUBindGroup)
-        rightPass.setIndexBuffer(renderObjects[1].mesh.geometry.index.GPUBuffer,
-            renderObjects[1].mesh.geometry.index.format)
-        rightPass.drawIndexed(renderObjects[1].mesh.geometry.index.length)
-        rightPass.end()
-
-        /**
-         * FINAL PASS
-         */
-        quadRPDesc.colorAttachments[0].view = context.getCurrentTexture().createView()
-        const finalPass = encoder.beginRenderPass(quadRPDesc)
-
-        finalPass.setPipeline(renderQuad.pipeline)
-        i = 0
-        for (let attr of renderQuad.mesh.geometry.attributes) {
-            finalPass.setVertexBuffer(i, attr.GPUBuffer)
-            ++i
-        }
-        finalPass.setBindGroup(0, renderQuad.mesh.material.bindGroup.GPUBindGroup)
-        finalPass.setBindGroup(1, renderQuad.mesh.bindGroup.GPUBindGroup)
-        finalPass.setIndexBuffer(renderQuad.mesh.geometry.index.GPUBuffer, renderQuad.mesh.geometry.index.format)
-        finalPass.drawIndexed(renderQuad.mesh.geometry.index.length)
-        finalPass.end()
+        mainPass.end()
 
         const finish = encoder.finish()
         instance.submitEncoder([finish])
-        requestAnimationFrame(render)
+        // requestAnimationFrame(render)
     }
 
     render()
+
+    const gui = new GUI()
+    const params = {
+        posx: dirLight.position.x,
+        posy: dirLight.position.y,
+        posz: dirLight.position.z,
+    }
+    gui.add(params, "posx").min(-10).max(10)
+    gui.add(params, "posy").min(0).max(20)
+    gui.add(params, "posz").min(-10).max(10)
+
+    gui.onChange(e => {
+        const { object } = e
+        dirLight.position.set(object.posx, object.posy, object.posz)
+        dirLight.updateBuffer()
+
+        lightVisual.position.copy(dirLight.position)
+        lightVisual.updateMatrixWorld()
+        lightVisual.updateBuffer()
+
+        render()
+    })
 
     document.body.appendChild(canvas)
 }

@@ -32,6 +32,14 @@ class Mesh extends NodeCore {
         .inverse()
         .transpose()
     }
+
+    updateViewSpaceNormalMatrix(camera) {
+        this.normalMatrix
+        .copy(this.worldMatrix)
+        .multiply(camera.viewMatrix)
+        .inverse()
+        .transpose()
+    }
 }
 
 export default Mesh
