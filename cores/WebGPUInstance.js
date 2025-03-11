@@ -522,6 +522,19 @@ class WebGPUInstance {
             pipeline,
         }
     }
+
+    bindPostProcessing(postProcessing) {
+        const { geometry, material } = postProcessing.mesh
+        
+        this.bindMesh(postProcessing.mesh)
+        
+        const pipelineLayout = this.createPipelineLayout(material)
+        const pipelineCore = new PipelineCore(material)
+        pipelineCore.setVertexBufferLayout(geometry.vertexBufferLayout)
+        postProcessing.pipeline = this.createRenderPipeline(pipelineCore, pipelineLayout)
+
+    }
+
 }
 
 export default WebGPUInstance
