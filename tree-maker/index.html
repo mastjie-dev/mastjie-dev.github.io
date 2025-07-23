@@ -13,8 +13,8 @@
         height: 100%;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-Dli5dIAD.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-D43Ez0yh.css">
+    <script type="module" crossorigin src="./assets/index-DT80BqWM.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BEqcigD6.css">
   </head>
   <body>
     <!-- top menu -->
@@ -31,6 +31,9 @@
             </div>
             <div>
                 <button id="509" class="p-2 mx-1 bg-gray-100 hover:bg-gray-400 w-32">Examples</button>
+            </div>
+            <div>
+                <button id="508" class="p-2 bg-gray-100 hover:bg-gray-400 w-32">Misc</button>
             </div>
         </div>
     </div>
@@ -234,19 +237,22 @@
                 <div class="flex py-2">
                     <div class="basis-1/2">Height (m):</div>
                     <div class="basis-1/2">
-                        <input type="number" name="height" value="5" class="w-full" />
+                        <input type="number" name="height" value="5" class="w-full"
+                        placeholder="min:1 max:50"/>
                     </div>
                 </div>
                 <div class="flex py-2">
                     <div class="basis-1/2">Radial Segments:</div>
                     <div class="basis-1/2">
-                        <input type="number" name="radial-segments" value="8" class="w-full"/>
+                        <input type="number" name="radial-segments" value="8" class="w-full"
+                        placeholder="min:3, max:32"/>
                     </div>
                 </div>
                 <div class="flex py-2">
                     <div class="basis-1/2">Height Segments:</div>
                     <div class="basis-1/2">
-                        <input type="number" name="height-segments" value="5" class="w-full" />
+                        <input type="number" name="height-segments" value="5" class="w-full" 
+                        placeholder="min:1 max:10"/>
                     </div>
                 </div>
                 <div class="flex flex-row-reverse pt-2">
@@ -264,13 +270,15 @@
                 <div class="flex py-2">
                     <div class="basis-1/2">Count:</div>
                     <div class="basis-1/2">
-                        <input type="number" name="count" value="20" class="w-full" />
+                        <input type="number" name="count" value="20" class="w-full"
+                        placeholder="min:1 max:50"/>
                     </div>
                 </div>
                 <div class="flex py-2">
                     <div class="basis-1/2">Size:</div>
                     <div class="basis-1/2">
-                        <input type="number" name="size" value="3" class="w-full" />
+                        <input type="number" name="size" value="3" class="w-full"
+                        placeholder="min:1 max:10"/>
                     </div>
                 </div>
                 <div class="flex flex-row-reverse pt-2">
@@ -348,6 +356,79 @@
                 </div>
                 <div class="flex flex-row-reverse pt-2">
                     <button class="px-4 py-2 bg-gray-200 hover:bg-gray-400 mr-2" data-dg-btn="555">Cancel</button>
+                </div>
+            </div>
+
+            <!-- misc -->
+            <div id="misc-page" class="hidden bg-gray-300 p-5 w-1/2">
+                
+                <!-- shortcut -->
+                <div>
+                    <div class="text-lg">Shortcut</div>
+                    <div class="text-sm">
+                        <div class="flex flex-row font-semibold">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Action</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Key</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Description</div>
+                        </div>
+                        <div class="flex flex-row bg-gray-200">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Move</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">g</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Move an object</div>
+                        </div>
+                        <div class="flex flex-row">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Rotate</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">r</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Rotate an object</div>
+                        </div>
+                        <div class="flex flex-row bg-gray-200">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Scale</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">s</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Scale an object</div>
+                        </div>
+                        <div class="flex flex-row">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Lock Axis</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">x, y, z</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Lock axis when move, rotate, or scale an object</div>
+                        </div>
+                        <div class="flex flex-row bg-gray-200">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Delete</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">del</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Delete an object</div>
+                        </div>
+                        <div class="flex flex-row">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Deselect</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">esc</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Deselect object</div>
+                        </div>
+                        <div class="flex flex-row bg-gray-200">
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">Edit Mode</div>
+                            <div class="w-24 border-solid pl-2 py-2 border-l-2 border-black">q</div>
+                            <div class="border-solid pl-2 py-2 border-l-2 border-black">Enter edit mode (branch/trunk only)</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- credits -->
+                <div class="text-lg pt-3">Credits</div>
+                <div class="text-sm">
+                    Created with <a href="https://threejs.org/" target="_blank" rel="noopener noreferrer">Three JS</a>
+                    and <a href="https://tailwindcss.com/" target="_blank" rel="noopener noreferrer">Tailwind CSS</a>.
+                    Wood textures if from <a href="https://freestylized.com/" target="_blank" rel="noopener noreferrer">
+                    FREESTYLIZED.COM</a>
+                </div>
+
+                <!-- about -->
+                <div class="text-lg pt-3">About</div>
+                <div class="text-sm">Version: 0.3.0</div>
+
+                <!-- contact -->
+                <div class="text-lg pt-3">Contact</div>
+                <div class="text-sm">Email: bountifulsquare4[at]gmail[dot]com</div>
+                <div class="text-sm">X.com: <a href="https://x.com/mastjie" target="_blank" rel="noopener noreferrer">mastjie</a></div>
+                
+                <div class="flex flex-row-reverse pt-1">
+                    <button class="px-4 py-2 bg-gray-200 hover:bg-gray-400 mr-2" data-dg-btn="555">Close</button>
                 </div>
             </div>
         </div>
